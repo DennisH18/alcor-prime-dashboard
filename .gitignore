@@ -1,5 +1,6 @@
 # Ignore Streamlit secrets
-.streamlit
+.streamlit/
+.streamlit/secrets.toml
 
 # Ignore environment variables
 .env
