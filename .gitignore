@@ -1,0 +1,5 @@
+# Ignore Streamlit secrets
+.streamlit
+
+# Ignore environment variables
+.env
