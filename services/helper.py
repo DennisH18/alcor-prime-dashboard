@@ -86,4 +86,4 @@ def get_available_months(data, companies, selected_year):
 def get_available_companies_and_years(data_store):
     companies = sorted(data_store.keys())
     years = sorted({year for company in data_store for year in data_store[company]})
-    return companies, years
+    return companies, years[1:] if len(years) > 1 else []
