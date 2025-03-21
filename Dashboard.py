@@ -693,7 +693,8 @@ def prepare_data(data_store, companies, selected_year):
 
                     cost_df = df[df.iloc[:, 0].astype(str).str.startswith(("6", "5"))]
 
-                    df_top_5 = cost_df.nlargest(4, df.columns[2])[[df.columns[1], df.columns[2]]] if not cost_df.empty else pd.DataFrame()
+                    column_name = df.columns[2]  # Replace with actual column name
+                    df_top_5 = cost_df.nlargest(4, column_name)[[df.columns[1], column_name]]
                     df_top_5.columns = ["Category", "Value"]
 
                     others_value = cost_df[~cost_df.index.isin(df_top_5.index)][df.columns[2]].sum()
@@ -797,7 +798,7 @@ def prepare_data(data_store, companies, selected_year):
 
 def main():
 
-    
+
     data_store = helper.fetch_all_data()    
     available_companies, available_years = helper.get_available_companies_and_years(data_store)
     
