@@ -141,7 +141,7 @@ def display_pnl(data):
                 text-align: left;
             }
             th {
-                background-color: #4CAF50;
+                background-color: gray;
                 color: white;
                 position: sticky;
                 top: 0;
