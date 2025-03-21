@@ -796,6 +796,8 @@ def prepare_data(data_store, companies, selected_year):
 
 
 def main():
+
+    
     data_store = helper.fetch_all_data()    
     available_companies, available_years = helper.get_available_companies_and_years(data_store)
     
