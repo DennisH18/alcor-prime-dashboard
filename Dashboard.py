@@ -83,8 +83,10 @@ def waterfall_chart(data):
 
     df = pd.DataFrame([
         {"Category": category, "Values": data.get(category, 0)}
-        for category in account_categories.keys()
+        for category in account_categories.keys() 
+        if category not in ["Gross Profit", "Total Expenses"]
     ])
+
 
     rename_map = {
         "Cost of Goods Sold": "COGS",
@@ -217,7 +219,7 @@ def create_pie_chart(df):
     return pie_chart + text_labels
 
 
-def pie_chart(pie_data, cost_data, cost_data_last_year):
+def comparison_pie_chart(pie_data, cost_data, cost_data_last_year):
 
     if pie_data:
         
@@ -366,7 +368,7 @@ def display_monthly(data, selected_month, selected_year):
         with col3:
             with st.container(border=True, height=335):
                 st.markdown(f"<h5>JPCC vs Others</h5>", unsafe_allow_html=True)
-                pie_chart(jpcc_vs_others, top_5_expenses, top_5_expenses_last_year)
+                comparison_pie_chart(jpcc_vs_others, top_5_expenses, top_5_expenses_last_year)
         
         with col4:
             with st.container(border=True, height=335):
@@ -450,7 +452,7 @@ def display_ytd(data, selected_month, selected_year):
         with col3:
             with st.container(border=True, height=335):
                 st.markdown(f"<h5>{company} vs Other (YTD)</h5>", unsafe_allow_html=True)
-                pie_chart(ytd_jpcc_vs, ytd_top_5, ytd_top_5_last_year)
+                comparison_pie_chart(ytd_jpcc_vs, ytd_top_5, ytd_top_5_last_year)
 
         with col4:
             with st.container(border=True, height=335):
@@ -691,7 +693,7 @@ def prepare_data(data_store, companies, selected_year):
                         for category, value in categorized_data.items() if value is not None
                     ])
 
-                    cost_df = df[df.iloc[:, 0].astype(str).str.startswith(("6", "5"))]
+                    cost_df = df[df.iloc[:, 0].astype(str).str.startswith(("6"))]
                     column_name = df.columns[2] 
                     cost_df[column_name] = pd.to_numeric(cost_df[column_name], errors="coerce")
 
