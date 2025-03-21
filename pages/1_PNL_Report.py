@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import datetime as dt
 import calendar
-import services.helper as helper
 import streamlit.components.v1 as components
 
 import openpyxl
@@ -10,7 +9,12 @@ from openpyxl.styles import Alignment, Font, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
 from bs4 import BeautifulSoup
 
-st.set_page_config(layout="wide")
+import services.helper as helper
+import services.styles as styles
+from services.data import account_categories
+import services.auth as auth
+
+styles.style_page()
 
 st.markdown(
     """
@@ -214,6 +218,12 @@ def save_html_to_excel(table_html, output_filename="PNL_Report.xlsx"):
 
 
 def main():   
+
+    auth.login()
+
+    if not st.session_state.authenticated:
+        return
+    
     data_store = helper.fetch_all_data()    
     available_companies, available_years = helper.get_available_companies_and_years(data_store)
     

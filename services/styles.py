@@ -43,14 +43,16 @@ cf_table_style = """
 def style_page():
 
     st.set_page_config(layout="wide")
+    st.logo("logo.png")
+
     st.markdown("""
     <style>
     .block-container {
         padding: 3rem;
     }
     h4, h5, p, div {
-        margin: 0; 
-        padding: 0;
+        margin: 0px; 
+        padding: 0px;
     }
     .stMarkdown {
         margin: -5px;

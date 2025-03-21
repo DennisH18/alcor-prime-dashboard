@@ -9,7 +9,7 @@ import services.helper as helper
 import io
 import services.styles as styles
 from services.data import account_categories
-
+import services.auth as auth
 
 styles.style_page()
 
@@ -151,8 +151,32 @@ def waterfall_chart(data):
 
 
 def display_top_expenses(cost_data):
+
+    st.markdown(
+    """
+        <style>
+        .container { 
+            display: flex; 
+            justify-content: space-between; 
+            border-bottom: 1px solid #ddd;
+            margin:-50px 0 50px 0;
+            }
+        .left { font-size: 12px; color: #333; } 
+        .right { font-size: 12px; color: black; font-weight: bold; text-align: right; }
+    </style>
+    """,
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f"""
+        <div class='container'>
+            <h6>Top 5 Expenses</h6>
+        </div>
+    """,
+        unsafe_allow_html=True,
+    )
     for label, value in cost_data.items():
-        formatted_value = f"Rp. {value:.0f}"
+        formatted_value = f"IDR  {value:.0f}"
         st.markdown(
             f"""
             <div class='container'>
@@ -178,7 +202,7 @@ def create_pie_chart(df):
 
     pie_chart = (
         alt.Chart(df)
-        .mark_arc(innerRadius=30, outerRadius=50)
+        .mark_arc(innerRadius=20, outerRadius=40)
         .encode(
             theta=alt.Theta("Values:Q", stack=True),
             color=alt.Color(
@@ -187,7 +211,7 @@ def create_pie_chart(df):
                     orient="bottom",
                     title=None,
                     direction="horizontal",
-                    offset=65,
+                    offset=40,
                     labelFontSize=12,
                 ),
             ),
@@ -197,7 +221,7 @@ def create_pie_chart(df):
                 alt.Tooltip("Percentage:N", title="Percentage")
             ]
         )
-        .properties(width=180, height=155)
+        .properties(width=180, height=130)
     )
 
     text_labels = (
@@ -219,10 +243,8 @@ def create_pie_chart(df):
     return pie_chart + text_labels
 
 
-def comparison_pie_chart(pie_data, cost_data, cost_data_last_year):
-
+def comparison_pie_chart(pie_data):
     if pie_data:
-        
         df = pd.DataFrame([
             {"Category": "JPCC", "Values": pie_data["JPCC"]},
             {"Category": "OTHERS", "Values": pie_data["OTHERS"]}
@@ -230,34 +252,51 @@ def comparison_pie_chart(pie_data, cost_data, cost_data_last_year):
         df_ly = pd.DataFrame([
             {"Category": "JPCC_LY", "Values": pie_data["JPCC_LY"]},
             {"Category": "OTHERS_LY", "Values": pie_data["OTHERS_LY"]}
-        ])
-        
-        st.markdown(
-            """
-            <style>
-                .container { 
-                    display: flex; 
-                    justify-content: space-between; 
-                    border-bottom: 1px solid #ddd;
-                    margin: -20px 0 20px 0;
-                }
-                .left { font-size: 12px; color: #333; } 
-                .right { font-size: 12px; color: black; font-weight: bold; text-align: right; }
-            </style>
-        """,
-            unsafe_allow_html=True,
-        )
-            
+        ])  
 
         col1, col2 = st.columns(2)
         with col1:
             st.altair_chart(create_pie_chart(df), use_container_width=True)
-            display_top_expenses(cost_data)
                 
         with col2:
             st.altair_chart(create_pie_chart(df_ly), use_container_width=True)
-            display_top_expenses(cost_data_last_year)
              
+def cost_pie_chart(pie_data):
+
+    df = pd.DataFrame(list(pie_data.items()), columns=["Category", "Values"])
+    
+    total = df["Values"].sum()
+    df["Percentage"] = (df["Values"] / total * 100).round(0).astype(int)
+    df["Percentage"] = df["Percentage"].astype(str) + "%"
+    df["Legend"] = df.apply(lambda row: f"{row['Category']} - {row['Percentage']}", axis=1)
+    
+    pie_chart = (
+        alt.Chart(df)
+        .mark_arc(innerRadius=30, outerRadius=50)
+        .encode(
+            theta=alt.Theta("Values:Q", stack=True),
+            color=alt.Color(
+                "Legend:N",
+                sort=None,
+                legend=alt.Legend(
+                    title=None,
+                    direction="vertical",
+                    labelFontSize=12,
+                    offset=60,
+                ),
+            ),
+            tooltip=[
+                alt.Tooltip("Category:N", title="Category"),
+                alt.Tooltip("Values:Q", title="Values", format=","),
+                alt.Tooltip("Percentage:N", title="Percentage")
+            ]
+        )
+        .properties(width=180, height=130)
+    )
+
+    st.altair_chart(pie_chart, use_container_width=True)
+
+
 
 def format_metric(value):
     color = "green" if value > 0 else "red" if value < 0 else "orange"
@@ -267,12 +306,12 @@ def format_metric(value):
 
 
 def display_metric(title, key, amount, metric1, metric2):
-    with st.container(border=True, height=160):
+    with st.container(border=True, height=170):
         st.markdown(f"<h5>{title}</h5>", unsafe_allow_html=True)
 
         if title == "Revenue":
             st.markdown(
-                f"<h4 style='color:darkblue;'>Rp. {amount:,.0f}</h4>",
+                f"<h4 style='color:darkblue;'>IDR  {amount:,.0f}</h4>",
                 unsafe_allow_html=True,
             )
             col1, col2 = st.columns([5, 2], gap="small")
@@ -286,7 +325,7 @@ def display_metric(title, key, amount, metric1, metric2):
         elif title == "Net Profit":
             color = "darkred" if amount < 0 else "green"
             st.markdown(
-                f"<h4 style='color:{color};'>Rp. {amount:,.0f}</h4>",
+                f"<h4 style='color:{color};'>IDR  {amount:,.0f}</h4>",
                 unsafe_allow_html=True,
             )
             col1, col2 = st.columns([5, 2], gap="small")
@@ -299,7 +338,7 @@ def display_metric(title, key, amount, metric1, metric2):
                 st.markdown(format_metric(metric1), unsafe_allow_html=True)
         else:
             st.markdown(
-                f"<h4 style='color:red;'>Rp. {amount:,.0f}</h4>", unsafe_allow_html=True
+                f"<h4 style='color:red;'>IDR  {amount:,.0f}</h4>", unsafe_allow_html=True
             )
             col1, col2 = st.columns([5, 2], gap="small")
             with col1:
@@ -366,12 +405,15 @@ def display_monthly(data, selected_month, selected_year):
                 display_metric(label, f"{key}_{company.lower()}", current, budget_percentage_change, year_over_year_change)
 
         with col3:
-            with st.container(border=True, height=335):
+            with st.container(border=True, height=170):
                 st.markdown(f"<h5>JPCC vs Others</h5>", unsafe_allow_html=True)
-                comparison_pie_chart(jpcc_vs_others, top_5_expenses, top_5_expenses_last_year)
-        
+                comparison_pie_chart(jpcc_vs_others)
+            with st.container(border=True, height=170):
+                st.markdown(f"<h5>Operational Cost Overview</h5>", unsafe_allow_html=True)
+                cost_pie_chart(top_5_expenses)
+                
         with col4:
-            with st.container(border=True, height=335):
+            with st.container(border=True, height=355):
                 st.markdown("<h5>Income Statement</h5>", unsafe_allow_html=True)
                 waterfall_chart(filtered_data)
 
@@ -452,7 +494,7 @@ def display_ytd(data, selected_month, selected_year):
         with col3:
             with st.container(border=True, height=335):
                 st.markdown(f"<h5>{company} vs Other (YTD)</h5>", unsafe_allow_html=True)
-                comparison_pie_chart(ytd_jpcc_vs, ytd_top_5, ytd_top_5_last_year)
+                comparison_pie_chart(ytd_jpcc_vs)
 
         with col4:
             with st.container(border=True, height=335):
@@ -801,6 +843,9 @@ def prepare_data(data_store, companies, selected_year):
 
 def main():
 
+    auth.login()
+    if not st.session_state.authenticated:
+        return
 
     data_store = helper.fetch_all_data()    
     available_companies, available_years = helper.get_available_companies_and_years(data_store)
