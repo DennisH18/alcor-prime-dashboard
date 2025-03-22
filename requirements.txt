@@ -8,5 +8,4 @@ beautifulsoup4
 html5lib
 requests
 xlsxwriter
-streamlit_js_eval
 cv2
