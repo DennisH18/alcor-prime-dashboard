@@ -9,3 +9,4 @@ html5lib
 requests
 xlsxwriter
 opencv-python-headless
+streamlit_js_eval
