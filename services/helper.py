@@ -128,7 +128,6 @@ def transform_to_category_codes(pnl_account_categories_dict):
     return transformed_dict
 
 
-
 def export_all_tables_to_excel(company_html_dict):
     output = BytesIO()
     wb = Workbook()
@@ -158,28 +157,29 @@ def export_all_tables_to_excel(company_html_dict):
                     rowspan = int(cell.get("rowspan", 1))
                     value = cell.get_text(strip=True)
 
-                    # Check if it's a number, negative number in (), or percentage
-                    is_number = False
-                    if "COA" in cell.get("class", []):  # Skip formatting for COA column
+                    # Detect if text should be bold
+                    is_bold = cell.find("b") or cell.find("strong") or "font-weight: bold" in str(cell.get("style", "")).lower()
+
+                    # Inside the loop where you process each cell
+                    num_format = None  # Initialize to prevent UnboundLocalError
+
+                    if "COA" in cell.get("class", []):  
                         value = cell.get_text(strip=True)
                     elif value.endswith('%'):
                         try:
                             value = float(value.replace('%', '')) / 100
-                            is_number = True
                             num_format = percent_format
                         except ValueError:
                             pass
                     elif '(' in value and ')' in value:  # Negative number in ()
                         try:
                             value = -float(value.replace('(', '').replace(')', '').replace(',', ''))
-                            is_number = True
                             num_format = number_format
                         except ValueError:
                             pass
                     else:
                         try:
                             value = float(value.replace(',', ''))
-                            is_number = True
                             num_format = number_format
                         except ValueError:
                             pass  
@@ -190,8 +190,14 @@ def export_all_tables_to_excel(company_html_dict):
                     if cell.name == "th":
                         cell_ref.fill = header_fill
                         cell_ref.font = header_font
-                    elif is_number:
-                        cell_ref.number_format = num_format  # Apply Excel number format
+                    elif is_bold:
+                        cell_ref.font = Font(bold=True)
+
+                    # Apply number format only if num_format is set
+                    if num_format:
+                        cell_ref.number_format = num_format  
+
+
 
                     # Merge columns
                     if colspan > 1:

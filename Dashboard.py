@@ -107,17 +107,27 @@ def waterfall_chart(data, title):
     st.altair_chart(chart, use_container_width=True)
 
 
+
 def create_pie_chart(df):
+    color_mapping = {
+        "JPCC": "#36416d",
+        "OTHERS": "#75aadb",
+        "JPCC_LY": "#36416d",
+        "OTHERS_LY": "#75aadb",
+    }
+
+    present_categories = df["Category"].unique().tolist()
+    filtered_color_mapping = {k: v for k, v in color_mapping.items() if k in present_categories}
+
+    df["Color"] = df["Category"].map(filtered_color_mapping)
 
     total = df["Values"].sum()
-
     df["theta"] = df["Values"] / total * 2 * 3.1415
     df["cumsum"] = df["theta"].cumsum()
     df["startAngle"] = df["cumsum"] - df["theta"]
     df["midAngle"] = df["startAngle"] + df["theta"] / 2
     df["midAngleDeg"] = df["midAngle"] * 180 / 3.1415
-    df["Percentage"] = (df["Values"] / total * 100).round(0).astype(int)
-    df["Percentage"] = df["Percentage"].astype(str) + "%"
+    df["Percentage"] = (df["Values"] / total * 100).round(0).astype(int).astype(str) + "%"
 
     pie_chart = (
         alt.Chart(df)
@@ -126,11 +136,9 @@ def create_pie_chart(df):
             theta=alt.Theta("Values:Q", stack=True),
             color=alt.Color(
                 "Category:N",
-                legend=alt.Legend(
-                    title=None,
-                    direction="vertical",
-                    labelFontSize=12,
-                ),
+                scale=alt.Scale(domain=list(filtered_color_mapping.keys()), 
+                                range=list(filtered_color_mapping.values())),
+                legend=alt.Legend(title=None, labelFontSize=12),
             ),
             tooltip=[
                 alt.Tooltip("Category:N", title="Category"),
@@ -158,6 +166,7 @@ def create_pie_chart(df):
     )
 
     return pie_chart + text_labels
+
 
 
 def comparison_pie_chart(pie_data):

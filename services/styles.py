@@ -53,10 +53,8 @@ pnl_table_style = """
             text-align: center;
             position: sticky;
             top: 0;
-        }
-        .scrollable-table {
-            overflow-y: auto;
-            border: 1px solid #ddd;
+            background-color: #c0c0c0;
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
         }
         th, td {
             padding: 8px;
@@ -64,7 +62,6 @@ pnl_table_style = """
         }
         th {
             background-color: #f2f2f2;
-            text-align: left;
         }
         .main-category {
             font-weight: bold;
@@ -86,8 +83,8 @@ pnl_table_style = """
             font-weight: bold;
             background-color: #c0c0c0;
         }
-        .code-row {
-            padding-left: 40px;
+        tr:hover {
+            background-color: #e6f7ff;
         }
     </style>
     """
