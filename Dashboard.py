@@ -3,104 +3,44 @@ import pandas as pd
 import datetime as dt
 import altair as alt
 import calendar
-import streamlit.components.v1 as components
-import numpy as np
+
 import services.helper as helper
-import io
 import services.styles as styles
-from services.data import account_categories
 import services.auth as auth
+from services.data import pnl_account_categories_dict
 
 styles.style_page()
+all_coa = helper.get_all_coa()
+account_categories = helper.transform_to_category_codes(pnl_account_categories_dict)
 
+def waterfall_chart(data, title):
 
-def convert_to_excel_styled(cash_flow, all_months):
-    excel_buffer = io.BytesIO()
-    with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
-        for company, data in cash_flow.items():
-            workbook = writer.book
-            sheet_name = company[:31]  # Excel sheet names must be ≤ 31 characters
-            
-            df_rows = []
-            for category, metrics in data.items():
-                if category == "Net Profit Margin (%)":
-                    continue  # Handled separately
-
-                for metric_type in ["Actual", "Budget", "Last"]:
-                    row = ["", category, metric_type]  # Empty column for ID
-                    row += [metrics[metric_type].get(m, 0) for m in all_months]
-                    row.append(metrics[metric_type]["YTD"])
-                    df_rows.append(row)
-
-            df = pd.DataFrame(df_rows, columns=["ID", "Category", "Type"] + all_months + ["YTD"])
-            df.to_excel(writer, sheet_name=sheet_name, index=False, startrow=1, header=False)
-
-            # Apply formatting
-            worksheet = writer.sheets[sheet_name]
-            header_format = workbook.add_format({"bold": True, "bg_color": "#e6e6e6", "border": 1, "align": "center"})
-            num_format = workbook.add_format({"num_format": "#,##0", "border": 1})
-            percent_format = workbook.add_format({"num_format": "0.0%", "border": 1})
-            bold_center = workbook.add_format({"bold": True, "align": "center", "border": 1})
-
-            # Write headers
-            headers = ["ID", "Category", "Actual/Target"] + all_months + ["YTD"]
-            worksheet.write_row(0, 0, headers, header_format)
-
-            # Apply styles to the table
-            for row_num in range(1, len(df) + 1):
-                for col_num in range(len(headers)):
-                    if col_num in [0, 1, 2]:  # First 3 columns (ID, Category, Type)
-                        worksheet.write(row_num, col_num, df.iloc[row_num - 1, col_num], bold_center)
-                    else:  # Numeric columns
-                        worksheet.write(row_num, col_num, df.iloc[row_num - 1, col_num], num_format)
-
-            # Handle Net Profit Margin (%) separately
-            if "Net Profit Margin (%)" in data:
-                np = data["Net Profit Margin (%)"]
-                np_rows = [["", "Net Profit Margin (%)", metric] + 
-                           [np[metric].get(m, 0) / 100 for m in all_months] + 
-                           [np[metric]["YTD"] / 100] for metric in ["Actual", "Budget", "Last"]]
-                
-                for row in np_rows:
-                    df.loc[len(df)] = row  # Append to DataFrame
-                
-                for row_num, row in enumerate(np_rows, start=len(df_rows) + 1):
-                    for col_num, value in enumerate(row):
-                        fmt = percent_format if col_num > 2 else bold_center
-                        worksheet.write(row_num, col_num, value, fmt)
-
-            # Set column widths
-            worksheet.set_column(0, 0, 5)  # ID
-            worksheet.set_column(1, 1, 25)  # Category
-            worksheet.set_column(2, 2, 15)  # Actual/Target
-            worksheet.set_column(3, len(headers) - 1, 12)  # Months + YTD
-
-    excel_buffer.seek(0)
-    return excel_buffer
-
-
-def waterfall_chart(data):
-
-    df = pd.DataFrame([
-        {"Category": category, "Values": data.get(category, 0)}
-        for category in account_categories.keys() 
-        if category not in ["Gross Profit", "Total Expenses"]
-    ])
-
+    df = pd.DataFrame(
+        [
+            {"Category": category, "Values": data.get(category, 0)}
+            for category in account_categories.keys()
+            if category not in ["GROSS PROFIT", "TOTAL EXPENSES"]
+        ]
+    )
 
     rename_map = {
-        "Cost of Goods Sold": "COGS",
-        "HR + Benefit": "HR+Benefits",
-        "Operating Expenses": "Op Exp",
-        "Depreciation & Maintenance": "Deprec+Maint",
-        "Other Non-Operating (Income)/Expense + Tax": "Other Exp/Inc",
+        "REVENUE": "Revenue",
+        "HUMAN RESOURCES": "HR+Benefit",
+        "OPERATIONAL EXPENSES": "Op Exp",
+        "DEPRECIATION & MAINTENANCE": "Depr+Maint",
+        "OTHER INCOME / EXPENSES": "Other Inc/Exp",
+        "NET PROFIT": "Net Profit",
     }
 
     df["Category"] = df["Category"].replace(rename_map)
 
     df["Values"] = df.apply(
-        lambda row: row["Values"] if row["Category"] in ["Revenue", "Net Profit", "Other Exp/Inc"] else -abs(row["Values"]),
-        axis=1
+        lambda row: (
+            row["Values"]
+            if row["Category"] in ["Revenue", "Net Profit", "Other Inc/Exp"]
+            else -abs(row["Values"])
+        ),
+        axis=1,
     ).round(0)
 
     df.loc[0, "Start"] = 0
@@ -111,27 +51,42 @@ def waterfall_chart(data):
         df.loc[i, "End"] = df.loc[i, "Start"] + df.loc[i, "Values"]
 
     color_map = {
-        "Revenue": "lightgreen",
-        "COGS": "red",
-        "HR+Benefits": "red",
-        "Op Exp": "red",
-        "Deprec+Maint": "red",
-        "Net Profit": "blue",
+        "Revenue": "#008000",
+        "COGS": "#d9224c",
+        "HR+Benefit": "#d9224c",
+        "Op Exp": "#d9224c",
+        "Depr+Maint": "#d9224c",
+
     }
 
-    color_map["Other Exp/Inc"] = "lightgreen" if data.get("Other Non-Operating (Income)/Expense + Tax", 0) > 0 else "red"
-    color_map["Net Profit"] = "blue" if data.get("Net Profit", 0) > 0 else "darkred"
+    color_map["Other Inc/Exp"] = (
+        "#008000" if data.get("OTHER INCOME / EXPENSES", 0) > 0 else "#d9224c"
+    )
+    color_map["Net Profit"] = (
+        "#008000" if data.get("NET PROFIT", 0) > 0 else "darkred"
+    )
 
     bars = (
         alt.Chart(df)
         .mark_bar()
         .encode(
-            x=alt.X("Category:N", title="", sort=df["Category"].tolist(),
-                    axis=alt.Axis(labelAngle=0, labelOverlap="parity")),
-            y=alt.Y("Start:Q", title=None),
+            x=alt.X(
+                "Category:N",
+                title="",
+                sort=df["Category"].tolist(),
+                axis=alt.Axis(labelAngle=0, labelOverlap="parity"),
+            ),
+            y=alt.Y(
+                "Start:Q",
+                title=None            ),
             y2="End:Q",
-            color=alt.Color("Category:N", scale=alt.Scale(domain=list(color_map.keys()), 
-                                                           range=list(color_map.values())), legend=None),
+            color=alt.Color(
+                "Category:N",
+                scale=alt.Scale(
+                    domain=list(color_map.keys()), range=list(color_map.values())
+                ),
+                legend=None,
+            ),
             tooltip=["Category", "Values"],
         )
     )
@@ -146,82 +101,44 @@ def waterfall_chart(data):
         y=alt.Y("End:Q"),
     )
 
-    chart = (bars + text).properties(height=280)
+    chart = (bars + text).properties(
+        height=270, title=alt.TitleParams(text=title, fontSize=16)
+    )
     st.altair_chart(chart, use_container_width=True)
-
-
-def display_top_expenses(cost_data):
-
-    st.markdown(
-    """
-        <style>
-        .container { 
-            display: flex; 
-            justify-content: space-between; 
-            border-bottom: 1px solid #ddd;
-            margin:-50px 0 50px 0;
-            }
-        .left { font-size: 12px; color: #333; } 
-        .right { font-size: 12px; color: black; font-weight: bold; text-align: right; }
-    </style>
-    """,
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        f"""
-        <div class='container'>
-            <h6>Top 5 Expenses</h6>
-        </div>
-    """,
-        unsafe_allow_html=True,
-    )
-    for label, value in cost_data.items():
-        formatted_value = f"IDR  {value:.0f}"
-        st.markdown(
-            f"""
-            <div class='container'>
-                <span class='left'>{label[:15] + "..." if len(label) > 15 else label}</span>
-                <span class='right'>{formatted_value}</span>
-            </div>
-        """,
-            unsafe_allow_html=True,
-        )
 
 
 def create_pie_chart(df):
 
     total = df["Values"].sum()
 
-    df["theta"] = df["Values"] / total * 2 * np.pi
+    df["theta"] = df["Values"] / total * 2 * 3.1415
     df["cumsum"] = df["theta"].cumsum()
     df["startAngle"] = df["cumsum"] - df["theta"]
     df["midAngle"] = df["startAngle"] + df["theta"] / 2
-    df["midAngleDeg"] = df["midAngle"] * 180 / np.pi
+    df["midAngleDeg"] = df["midAngle"] * 180 / 3.1415
     df["Percentage"] = (df["Values"] / total * 100).round(0).astype(int)
     df["Percentage"] = df["Percentage"].astype(str) + "%"
 
     pie_chart = (
         alt.Chart(df)
-        .mark_arc(innerRadius=20, outerRadius=40)
+        .mark_arc(innerRadius=20, outerRadius=45)
         .encode(
             theta=alt.Theta("Values:Q", stack=True),
             color=alt.Color(
                 "Category:N",
                 legend=alt.Legend(
-                    orient="bottom",
                     title=None,
-                    direction="horizontal",
-                    offset=40,
+                    direction="vertical",
                     labelFontSize=12,
                 ),
             ),
             tooltip=[
                 alt.Tooltip("Category:N", title="Category"),
                 alt.Tooltip("Values:Q", title="Values", format=","),
-                alt.Tooltip("Percentage:N", title="Percentage")
-            ]
+                alt.Tooltip("Percentage:N", title="Percentage"),
+            ],
         )
-        .properties(width=180, height=130)
+        .properties(width=180, height=120)
     )
 
     text_labels = (
@@ -231,12 +148,12 @@ def create_pie_chart(df):
             text=alt.Text("Percentage:N"),
             theta=alt.Theta("Values:Q", stack=True),
             angle=alt.Angle("midAngleDeg:Q"),
-            radius=alt.value(65),
+            radius=alt.value(60),
             tooltip=[
                 alt.Tooltip("Category:N", title="Category"),
                 alt.Tooltip("Values:Q", title="Values", format=","),
-                alt.Tooltip("Percentage:N", title="Percentage")
-            ]
+                alt.Tooltip("Percentage:N", title="Percentage"),
+            ],
         )
     )
 
@@ -245,61 +162,88 @@ def create_pie_chart(df):
 
 def comparison_pie_chart(pie_data):
     if pie_data:
-        df = pd.DataFrame([
-            {"Category": "JPCC", "Values": pie_data["JPCC"]},
-            {"Category": "OTHERS", "Values": pie_data["OTHERS"]}
-        ])
-        df_ly = pd.DataFrame([
-            {"Category": "JPCC_LY", "Values": pie_data["JPCC_LY"]},
-            {"Category": "OTHERS_LY", "Values": pie_data["OTHERS_LY"]}
-        ])  
+        df = pd.DataFrame(
+            [
+                {"Category": "JPCC", "Values": pie_data["JPCC"]},
+                {"Category": "OTHERS", "Values": pie_data["OTHERS"]},
+            ]
+        )
+        df_ly = pd.DataFrame(
+            [
+                {"Category": "JPCC_LY", "Values": pie_data["JPCC_LY"]},
+                {"Category": "OTHERS_LY", "Values": pie_data["OTHERS_LY"]},
+            ]
+        )
 
-        col1, col2 = st.columns(2)
-        with col1:
-            st.altair_chart(create_pie_chart(df), use_container_width=True)
-                
-        with col2:
-            st.altair_chart(create_pie_chart(df_ly), use_container_width=True)
-             
+        st.altair_chart(create_pie_chart(df), use_container_width=True)
+        st.altair_chart(create_pie_chart(df_ly), use_container_width=True)
+
+
 def cost_pie_chart(pie_data):
 
     df = pd.DataFrame(list(pie_data.items()), columns=["Category", "Values"])
-    
+
+    df_sorted = df.sort_values("Values", ascending=False)
+    df_top = df_sorted.head(4)
+    df_others = pd.DataFrame(
+        [["Others", df_sorted["Values"][4:].sum()]], columns=df.columns
+    )
+    df = pd.concat([df_top, df_others], ignore_index=True)
+
+    fixed_colors = ["#7776a6", "#d9224c", "#6094cc", "#36416d", "#a55073"]
+    df["Color"] = fixed_colors[: len(df)]
+
     total = df["Values"].sum()
-    df["Percentage"] = (df["Values"] / total * 100).round(0).astype(int)
-    df["Percentage"] = df["Percentage"].astype(str) + "%"
-    df["Legend"] = df.apply(lambda row: f"{row['Category']} - {row['Percentage']}", axis=1)
-    
+    df["Percentage"] = (df["Values"] / total * 100).round(0).astype(int).astype(
+        str
+    ) + "%"
+    df["Legend"] = df.apply(
+        lambda row: f"{row['Category']} - {row['Percentage']}", axis=1
+    )
+
     pie_chart = (
         alt.Chart(df)
-        .mark_arc(innerRadius=30, outerRadius=50)
+        .mark_arc(innerRadius=30, outerRadius=60)
         .encode(
             theta=alt.Theta("Values:Q", stack=True),
             color=alt.Color(
                 "Legend:N",
-                sort=None,
-                legend=alt.Legend(
-                    title=None,
-                    direction="vertical",
-                    labelFontSize=12,
-                    offset=60,
+                scale=alt.Scale(
+                    domain=df["Legend"].tolist(), range=df["Color"].tolist()
                 ),
+                legend=None,
             ),
             tooltip=[
                 alt.Tooltip("Category:N", title="Category"),
                 alt.Tooltip("Values:Q", title="Values", format=","),
-                alt.Tooltip("Percentage:N", title="Percentage")
-            ]
+                alt.Tooltip("Percentage:N", title="Percentage"),
+            ],
         )
-        .properties(width=180, height=130)
+        .properties(width=200, height=140)
     )
 
     st.altair_chart(pie_chart, use_container_width=True)
 
+    for category, color, percentage in zip(
+        df["Category"], df["Color"], df["Percentage"]
+    ):
+        legend_html = """
+        <div style='display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%;'>
+        """
+        legend_html += f"""
+        <div style='display: flex; align-items: center; font-size: 12px; margin-bottom: 5px; border-bottom: 1px solid #ddd; padding-bottom: 0px;'>
+            <div style='width: 14px; height: 14px; background-color: {color}; border-radius: 50%; margin-right: 10px;'></div>
+            <div style='width: 220px; text-align: left;'>{category}</div>
+            <div style='width: 50px; text-align: left;'>{percentage}</div>
+        </div>
+        """
+        legend_html += "</div>"
+
+        st.markdown(legend_html, unsafe_allow_html=True)
 
 
 def format_metric(value):
-    color = "green" if value > 0 else "red" if value < 0 else "orange"
+    color = "green" if value > 0 else "#d9224c" if value < 0 else "orange"
     sign = "+" if value > 0 else ("&nbsp;&nbsp;" if value == 0 else "")
 
     return f"<p style='color:{color}; font-size:12px; font-weight:bold;'>{sign}{value}%</p>"
@@ -311,7 +255,7 @@ def display_metric(title, key, amount, metric1, metric2):
 
         if title == "Revenue":
             st.markdown(
-                f"<h4 style='color:darkblue;'>IDR  {amount:,.0f}</h4>",
+                f"<h4 style='color:#36416d;'>IDR  {amount:,.0f}</h4>",
                 unsafe_allow_html=True,
             )
             col1, col2 = st.columns([5, 2], gap="small")
@@ -338,7 +282,8 @@ def display_metric(title, key, amount, metric1, metric2):
                 st.markdown(format_metric(metric1), unsafe_allow_html=True)
         else:
             st.markdown(
-                f"<h4 style='color:red;'>IDR  {amount:,.0f}</h4>", unsafe_allow_html=True
+                f"<h4 style='color:#d9224c;'>IDR  {amount:,.0f}</h4>",
+                unsafe_allow_html=True,
             )
             col1, col2 = st.columns([5, 2], gap="small")
             with col1:
@@ -361,145 +306,244 @@ def display_metric(title, key, amount, metric1, metric2):
 
 def calculate_percentage_change(actual, budget):
     if budget == 0:
-        return 0 
-    
+        return 0
+
     return round(((actual - budget) / abs(budget)) * 100, 1)
 
 
 def display_monthly(data, selected_month, selected_year):
 
     companies = sorted(set(key.split("_")[0] for key in data.keys()))
-    
+
     for company in companies:
 
         st.markdown(f"<h4>{company}</h4>", unsafe_allow_html=True)
-        
-        col1, col2, col3, col4 = st.columns([1, 1, 2, 3])
 
-        company_data = {key: value for key, value in data.items() if key.startswith(company)}
+        company_data = {
+            key: value for key, value in data.items() if key.startswith(company)
+        }
         key = f"{company}_{selected_month}_{selected_year}"
 
-        filtered_data = {item["Category"]: item["Value"] for item in company_data.get(key, {}).get("filtered_data", [])}
-        top_5_expenses = {item["Category"]: item["Value"] for item in company_data.get(key, {}).get("top_5_expenses", [])}
-
-        jpcc_vs_others = {item["Category"]: item["Value"] for item in company_data.get(key, {}).get("jpcc_vs_others", [])}
-        budget = {item["Category"]: item["Value"] for item in company_data.get(key, {}).get("budget", [])}
-
-        last_year_key = f"{company}_{selected_month}_{selected_year-1}"
-        filtered_data_last_year = {item["Category"]: item["Value"] for item in company_data.get(last_year_key, {}).get("filtered_data", [])}
-        top_5_expenses_last_year = {item["Category"]: item["Value"] for item in company_data.get(last_year_key, {}).get("top_5_expenses", [])}
-
-        metrics = {
-            "Revenue": ("revenue", filtered_data.get("Revenue", 0), filtered_data_last_year.get("Revenue", 0), budget.get("Revenue", 0)),
-            "Total Expenses": ("expense", filtered_data.get("Total Expenses", 0), filtered_data_last_year.get("Total Expenses", 0), budget.get("Total Expenses", 0)),
-            "COGS": ("cogs", filtered_data.get("Cost of Goods Sold", 0), filtered_data_last_year.get("Cost of Goods Sold", 0), budget.get("Cost of Goods Sold", 0)),
-            "Net Profit": ("net", filtered_data.get("Net Profit", 0), filtered_data_last_year.get("Net Profit", 0), budget.get("Net Profit", 0)),
+        filtered_data = {
+            item["Category"]: item["Value"]
+            for item in company_data.get(key, {}).get("filtered_data", [])
+        }
+        operating_expenses = {
+            item["Category"]: item["Value"]
+            for item in company_data.get(key, {}).get("operating_expenses", [])
         }
 
-        for i, (label, (key, current, last_year, budgeted)) in enumerate(metrics.items()):
+        jpcc_vs_others = {
+            item["Category"]: item["Value"]
+            for item in company_data.get(key, {}).get("jpcc_vs_others", [])
+        }
+        budget = {
+            item["Category"]: item["Value"]
+            for item in company_data.get(key, {}).get("budget", [])
+        }
+
+        last_year_key = f"{company}_{selected_month}_{selected_year-1}"
+        filtered_data_last_year = {
+            item["Category"]: item["Value"]
+            for item in company_data.get(last_year_key, {}).get("filtered_data", [])
+        }
+
+        metrics = {
+            "Revenue": (
+                "revenue",
+                filtered_data.get("REVENUE", 0),
+                filtered_data_last_year.get("REVENUE", 0),
+                budget.get("REVENUE", 0),
+            ),
+            "Total Expenses": (
+                "expense",
+                filtered_data.get("TOTAL EXPENSES", 0),
+                filtered_data_last_year.get("TOTAL EXPENSES", 0),
+                budget.get("TOTAL EXPENSES", 0),
+            ),
+            "COGS": (
+                "cogs",
+                filtered_data.get("COGS", 0),
+                filtered_data_last_year.get("COGS", 0),
+                budget.get("COGS", 0),
+            ),
+            "Net Profit": (
+                "net",
+                filtered_data.get("NET PROFIT", 0),
+                filtered_data_last_year.get("NET PROFIT", 0),
+                budget.get("NET PROFIT", 0),
+            ),
+        }
+
+        col1, col2, col3, col4 = st.columns([2, 2, 3, 3])
+
+        for i, (label, (key, current, last_year, budgeted)) in enumerate(
+            metrics.items()
+        ):
 
             year_over_year_change = calculate_percentage_change(current, last_year)
             budget_percentage_change = calculate_percentage_change(current, budgeted)
 
-            with (col1 if i % 2 == 0 else col2):
-                display_metric(label, f"{key}_{company.lower()}", current, budget_percentage_change, year_over_year_change)
+            with col1 if i % 2 == 0 else col2:
+                display_metric(
+                    label,
+                    f"{key}_{company.lower()}",
+                    current,
+                    budget_percentage_change,
+                    year_over_year_change,
+                )
 
         with col3:
-            with st.container(border=True, height=170):
+            with st.container(border=True, height=355):
                 st.markdown(f"<h5>JPCC vs Others</h5>", unsafe_allow_html=True)
                 comparison_pie_chart(jpcc_vs_others)
-            with st.container(border=True, height=170):
-                st.markdown(f"<h5>Operational Cost Overview</h5>", unsafe_allow_html=True)
-                cost_pie_chart(top_5_expenses)
-                
+
         with col4:
             with st.container(border=True, height=355):
-                st.markdown("<h5>Income Statement</h5>", unsafe_allow_html=True)
-                waterfall_chart(filtered_data)
+                st.markdown(
+                    f"<h5>Operational Cost Overview</h5>", unsafe_allow_html=True
+                )
+                cost_pie_chart(operating_expenses)
+
+        with st.container(border=True, height=355):
+            st.markdown("<h5>Income Statement</h5>", unsafe_allow_html=True)
+            col1, col2 = st.columns(2)
+
+            with col1:
+                waterfall_chart(filtered_data, "Actual")
+            with col2:
+                waterfall_chart(budget, "Budget")
 
         st.divider()
 
 
 def display_ytd(data, selected_month, selected_year):
     companies = sorted(set(key.split("_")[0] for key in data.keys()))
-    
+
     month_names = list(calendar.month_abbr)
     selected_month_index = month_names.index(selected_month)
-    valid_months = month_names[1:selected_month_index + 1]
+    valid_months = month_names[1 : selected_month_index + 1]
 
     for company in companies:
         st.markdown(f"<h4>{company}</h4>", unsafe_allow_html=True)
-        
-        col1, col2, col3, col4 = st.columns([1, 1, 2, 3])
-        
-        company_data = {key: value for key, value in data.items() if key.startswith(company)}
-        
+
+        company_data = {
+            key: value for key, value in data.items() if key.startswith(company)
+        }
+
         ytd_filtered = {}
         ytd_top_5 = {}
         ytd_filtered_last_year = {}
         ytd_top_5_last_year = {}
         ytd_jpcc_vs = {}
         ytd_budget = {}
-        
+
         for month in valid_months:
             selected_key = f"{company}_{month}_{selected_year}"
             sheet = company_data.get(selected_key, {})
-            
+
             for item in sheet.get("filtered_data", []):
                 category = item["Category"]
                 value = item["Value"]
                 ytd_filtered[category] = ytd_filtered.get(category, 0) + value
-            
-            for item in sheet.get("top_5_expenses", []):
+
+            for item in sheet.get("operating_expenses", []):
                 category = item["Category"]
                 value = item["Value"]
                 ytd_top_5[category] = ytd_top_5.get(category, 0) + value
-                
+
             for item in sheet.get("jpcc_vs_others", []):
                 category = item["Category"]
                 value = item["Value"]
                 ytd_jpcc_vs[category] = ytd_jpcc_vs.get(category, 0) + value
-            
+
             for item in sheet.get("budget", []):
                 category = item["Category"]
                 value = item["Value"]
                 ytd_budget[category] = ytd_budget.get(category, 0) + value
 
-            last_year_sheet = company_data.get(f"{company}_{month}_{selected_year-1}", {})
+            last_year_sheet = company_data.get(
+                f"{company}_{month}_{selected_year-1}", {}
+            )
 
-            for item in last_year_sheet.get("top_5_expenses", []):
+            for item in last_year_sheet.get("operating_expenses", []):
                 category = item["Category"]
                 value = item["Value"]
-                ytd_top_5_last_year[category] = ytd_top_5_last_year.get(category, 0) + value
+                ytd_top_5_last_year[category] = (
+                    ytd_top_5_last_year.get(category, 0) + value
+                )
 
             for item in last_year_sheet.get("filtered_data", []):
                 category = item["Category"]
                 value = item["Value"]
-                ytd_filtered_last_year[category] = ytd_filtered_last_year.get(category, 0) + value
+                ytd_filtered_last_year[category] = (
+                    ytd_filtered_last_year.get(category, 0) + value
+                )
 
             metrics = {
-                "Revenue": ("revenue", ytd_filtered.get("Revenue", 0), ytd_filtered_last_year.get("Revenue", 0), ytd_budget.get("Revenue", 0)),
-                "Total Expenses": ("expense", ytd_filtered.get("Total Expenses", 0), ytd_filtered_last_year.get("Total Expenses", 0), ytd_budget.get("Total Expenses", 0)),
-                "COGS": ("cogs", ytd_filtered.get("Cost of Goods Sold", 0), ytd_filtered_last_year.get("Cost of Goods Sold", 0), ytd_budget.get("Cost of Goods Sold", 0)),
-                "Net Profit": ("net", ytd_filtered.get("Net Profit", 0), ytd_filtered_last_year.get("Net Profit", 0), ytd_budget.get("Net Profit", 0)),
+                "Revenue": (
+                    "revenue",
+                    ytd_filtered.get("REVENUE", 0),
+                    ytd_filtered_last_year.get("REVENUE", 0),
+                    ytd_budget.get("REVENUE", 0),
+                ),
+                "Total Expenses": (
+                    "expense",
+                    ytd_filtered.get("TOTAL EXPENSES", 0),
+                    ytd_filtered_last_year.get("TOTAL EXPENSES", 0),
+                    ytd_budget.get("TOTAL EXPENSES", 0),
+                ),
+                "COGS": (
+                    "cogs",
+                    ytd_filtered.get("COGS", 0),
+                    ytd_filtered_last_year.get("COGS", 0),
+                    ytd_budget.get("COGS", 0),
+                ),
+                "Net Profit": (
+                    "net",
+                    ytd_filtered.get("NET PROFIT", 0),
+                    ytd_filtered_last_year.get("NET PROFIT", 0),
+                    ytd_budget.get("NET PROFIT", 0),
+                ),
             }
 
-        for i, (label, (key, actual, last_year, budgeted)) in enumerate(metrics.items()):
+        col1, col2, col3, col4 = st.columns([2, 2, 3, 3])
+
+        for i, (label, (key, actual, last_year, budgeted)) in enumerate(
+            metrics.items()
+        ):
             budget_percentage_change = calculate_percentage_change(actual, budgeted)
             last_year_percentage_change = calculate_percentage_change(actual, last_year)
 
-            with (col1 if i % 2 == 0 else col2):
-                display_metric(label, f"{key}_ytd_{company.lower()}", actual, budget_percentage_change, last_year_percentage_change)
+            with col1 if i % 2 == 0 else col2:
+                display_metric(
+                    label,
+                    f"{key}_ytd_{company.lower()}",
+                    actual,
+                    budget_percentage_change,
+                    last_year_percentage_change,
+                )
 
         with col3:
-            with st.container(border=True, height=335):
-                st.markdown(f"<h5>{company} vs Other (YTD)</h5>", unsafe_allow_html=True)
+            with st.container(border=True, height=355):
+                st.markdown(f"<h5>JPCC vs Others</h5>", unsafe_allow_html=True)
                 comparison_pie_chart(ytd_jpcc_vs)
 
         with col4:
-            with st.container(border=True, height=335):
-                st.markdown("<h5>Income Statement (YTD)</h5>", unsafe_allow_html=True)
-                waterfall_chart(ytd_filtered)
+            with st.container(border=True, height=355):
+                st.markdown(
+                    f"<h5>Operational Cost Overview</h5>", unsafe_allow_html=True
+                )
+                cost_pie_chart(ytd_top_5)
+
+        with st.container(border=True, height=355):
+            st.markdown("<h5>Income Statement</h5>", unsafe_allow_html=True)
+            col1, col2 = st.columns(2)
+
+            with col1:
+                waterfall_chart(ytd_filtered, "Actual")
+            with col2:
+                waterfall_chart(ytd_budget, "Budget")
 
         st.divider()
 
@@ -507,9 +551,12 @@ def display_ytd(data, selected_month, selected_year):
 def display_cash_flow_table(data, selected_year):
 
     companies = sorted({key.split("_")[0] for key in data.keys()})
-    all_months = sorted({key.split("_")[1] for key in data.keys()},
-                        key=lambda x: list(calendar.month_abbr).index(x))
-    
+    all_months = sorted(
+        {key.split("_")[1] for key in data.keys()},
+        key=lambda x: list(calendar.month_abbr).index(x),
+    )
+    company_html_dict = {}
+
     cash_flow = {comp: {} for comp in companies}
     for key, value in data.items():
         parts = key.split("_")
@@ -523,7 +570,7 @@ def display_cash_flow_table(data, selected_year):
                 cash_flow[company][category] = {
                     "Actual": {m: 0 for m in all_months},
                     "Budget": {m: 0 for m in all_months},
-                    "Last": {m: 0 for m in all_months}
+                    "Last": {m: 0 for m in all_months},
                 }
             if year == str(selected_year):
                 cash_flow[company][category]["Actual"][month] = amount
@@ -536,40 +583,34 @@ def display_cash_flow_table(data, selected_year):
                 cash_flow[company][category] = {
                     "Actual": {m: 0 for m in all_months},
                     "Budget": {m: 0 for m in all_months},
-                    "Last": {m: 0 for m in all_months}
+                    "Last": {m: 0 for m in all_months},
                 }
             if year == str(selected_year):
                 cash_flow[company][category]["Budget"][month] = amount
     for company in cash_flow:
         for category in cash_flow[company]:
             for metric in ["Actual", "Budget", "Last"]:
-                cash_flow[company][category][metric]["YTD"] = sum(cash_flow[company][category][metric].values())
+                cash_flow[company][category][metric]["YTD"] = sum(
+                    cash_flow[company][category][metric].values()
+                )
     for company in cash_flow:
-        if "Revenue" in cash_flow[company] and "Net Profit" in cash_flow[company]:
+        if "REVENUE" in cash_flow[company] and "NET PROFIT" in cash_flow[company]:
             np_margin = {"Actual": {}, "Budget": {}, "Last": {}}
             for metric in ["Actual", "Budget", "Last"]:
                 for m in all_months:
-                    rev = cash_flow[company]["Revenue"][metric].get(m, 0)
-                    net = cash_flow[company]["Net Profit"][metric].get(m, 0)
+                    rev = cash_flow[company]["REVENUE"][metric].get(m, 0)
+                    net = cash_flow[company]["NET PROFIT"][metric].get(m, 0)
                     margin = (net / rev * 100) if rev != 0 else 0
                     np_margin[metric][m] = margin
-                np_margin[metric]["YTD"] = sum(np_margin[metric][m] for m in all_months) / len(all_months) if all_months else 0
-            cash_flow[company]["Net Profit Margin (%)"] = np_margin
-
-    excel_file = convert_to_excel_styled(cash_flow, all_months)
+                np_margin[metric]["YTD"] = (
+                    sum(np_margin[metric][m] for m in all_months) / len(all_months)
+                    if all_months
+                    else 0
+                )
+            cash_flow[company]["NET PROFIT MARGIN (%)"] = np_margin
 
     col1, col2 = st.columns([4, 1])
-    with col1:
-        st.write("")
-        st.markdown("<h4>Profit and Loss Data</h4>", unsafe_allow_html=True)
-    with col2:
-        st.write("")
-        st.download_button(
-            label="Download Excel File",
-            data=excel_file,
-            file_name="cash_flow_report.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+
     st.divider()
 
     for company in companies:
@@ -577,15 +618,28 @@ def display_cash_flow_table(data, selected_year):
         rows = ""
         row_id = 1
         for category in cash_flow[company]:
-            if category == "Net Profit Margin (%)":
+            if category == "NET PROFIT MARGIN (%)":
                 continue
-            actual_values = "".join(f"<td>{cash_flow[company][category]['Actual'].get(m, 0):,.0f}</td>" for m in all_months)
-            budget_values = "".join(f"<td>{cash_flow[company][category]['Budget'].get(m, 0):,.0f}</td>" for m in all_months)
-            last_values   = "".join(f"<td>{cash_flow[company][category]['Last'].get(m, 0):,.0f}</td>" for m in all_months)
-            
-            actual_ytd = f"<td>{cash_flow[company][category]['Actual']['YTD']:,.0f}</td>"
-            budget_ytd = f"<td>{cash_flow[company][category]['Budget']['YTD']:,.0f}</td>"
-            last_ytd   = f"<td>{cash_flow[company][category]['Last']['YTD']:,.0f}</td>"
+            actual_values = "".join(
+                f"<td>{cash_flow[company][category]['Actual'].get(m, 0):,.0f}</td>"
+                for m in all_months
+            )
+            budget_values = "".join(
+                f"<td>{cash_flow[company][category]['Budget'].get(m, 0):,.0f}</td>"
+                for m in all_months
+            )
+            last_values = "".join(
+                f"<td>{cash_flow[company][category]['Last'].get(m, 0):,.0f}</td>"
+                for m in all_months
+            )
+
+            actual_ytd = (
+                f"<td>{cash_flow[company][category]['Actual']['YTD']:,.0f}</td>"
+            )
+            budget_ytd = (
+                f"<td>{cash_flow[company][category]['Budget']['YTD']:,.0f}</td>"
+            )
+            last_ytd = f"<td>{cash_flow[company][category]['Last']['YTD']:,.0f}</td>"
 
             rows += f"""
                 <tr class="actual-row">
@@ -608,19 +662,25 @@ def display_cash_flow_table(data, selected_year):
             """
             row_id += 1
 
-        if "Net Profit Margin (%)" in cash_flow[company]:
-            np = cash_flow[company]["Net Profit Margin (%)"]
-            actual_values = "".join(f"<td>{np['Actual'].get(m, 0):,.0f}%</td>" for m in all_months)
-            budget_values = "".join(f"<td>{np['Budget'].get(m, 0):,.0f}%</td>" for m in all_months)
-            last_values   = "".join(f"<td>{np['Last'].get(m, 0):,.0f}%</td>" for m in all_months)
+        if "NET PROFIT MARGIN (%)" in cash_flow[company]:
+            np = cash_flow[company]["NET PROFIT MARGIN (%)"]
+            actual_values = "".join(
+                f"<td>{np['Actual'].get(m, 0):,.0f}%</td>" for m in all_months
+            )
+            budget_values = "".join(
+                f"<td>{np['Budget'].get(m, 0):,.0f}%</td>" for m in all_months
+            )
+            last_values = "".join(
+                f"<td>{np['Last'].get(m, 0):,.0f}%</td>" for m in all_months
+            )
             actual_ytd = f"<td>{np['Actual']['YTD']:,.0f}%</td>"
             budget_ytd = f"<td>{np['Budget']['YTD']:,.0f}%</td>"
-            last_ytd   = f"<td>{np['Last']['YTD']:,.0f}%</td>"
+            last_ytd = f"<td>{np['Last']['YTD']:,.0f}%</td>"
 
             rows += f"""
                 <tr>
                     <td rowspan="3">{row_id}</td>
-                    <td rowspan="3" style="text-align: left; padding-left: 10px;">Net Profit Margin (%)</td>
+                    <td rowspan="3" style="text-align: left; padding-left: 10px;">NET PROFIT MARGIN (%)</td>
                     <td>Actual</td>
                     {actual_values}
                     {actual_ytd}
@@ -653,150 +713,202 @@ def display_cash_flow_table(data, selected_year):
         """
 
         st.markdown(f"<h4>{company}</h4>", unsafe_allow_html=True)
-        components.html(table_html, height=1050, scrolling=True)
+        st.components.v1.html(table_html, height=1050, scrolling=True)
+        company_html_dict[company]  = table_html
+
+
+    excel_file = helper.export_all_tables_to_excel(company_html_dict)
+
+    with col1:
+        st.write("")
+        st.markdown("<h4>Profit and Loss Data</h4>", unsafe_allow_html=True)
+    with col2:
+        st.write("")
+        st.download_button(
+            label=":green[**Download to Excel**]",
+            data=excel_file,
+            file_name="Profit and Loss Data.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
 
 def to_camel_case(month):
-    return ''.join(word.capitalize() for word in month.lower().split())
+    return "".join(word.capitalize() for word in month.lower().split())
 
 
 @st.cache_data
 def prepare_data(data_store, companies, selected_year):
-    
+
     results = {}
 
     predefined_budget = {
-        "TOTAL REVENUES": "Revenue",
-        "TOTAL COGS": "Cost of Goods Sold",
-        "GROSS PROFIT": "Gross Profit",
-        "TOTAL HUMAN RESOURCES": "HR + Benefit",
-        "TOTAL OPERATING & GA EXPENSES": "Operating Expenses",
-        "TOTAL DEPRECIATION & REPAIR MAINTENANCE": "Depreciation & Maintenance",
-        "GRAND TOTAL EXPENSES": "Total Expenses",
-        "TOTAL OTHER INCOME / EXPENSES": "Other Non-Operating (Income)/Expense + Tax",
-        "EARNINGS AFTER TAX (EAT)": "Net Profit",
+        "TOTAL REVENUES": "REVENUE",
+        "TOTAL COGS": "COGS",
+        "GROSS PROFIT": "GROSS PROFIT",
+        "TOTAL HUMAN RESOURCES": "HUMAN RESOURCES",
+        "TOTAL OPERATING & GA EXPENSES": "OPERATIONAL EXPENSES",
+        "TOTAL DEPRECIATION & REPAIR MAINTENANCE": "DEPRECIATION & MAINTENANCE",
+        "GRAND TOTAL EXPENSES": "TOTAL EXPENSES",
+        "TOTAL OTHER INCOME / EXPENSES": "OTHER INCOME / EXPENSES",
+        "EARNINGS AFTER TAX (EAT)": "NET PROFIT",
     }
 
     month_abbr = set(calendar.month_abbr[1:])
 
     for company in companies:
-        years_to_check = [selected_year, selected_year-1]
+        years_to_check = [selected_year, selected_year - 1]
         for year in years_to_check:
-    
+
             for file_name, df in data_store[company][year].items():
 
                 if "Management Report" in file_name:
-                    month_str = next((month for month in month_abbr if month in file_name), None)
+                    month_str = next(
+                        (month for month in month_abbr if month in file_name), None
+                    )
                     if not month_str:
                         continue
 
                     key = f"{company}_{month_str}_{year}"
 
-                    if pd.to_numeric(df.iloc[0], errors='coerce').notna().all():
+                    if pd.to_numeric(df.iloc[0], errors="coerce").notna().all():
                         df.iloc[0] = df.iloc[1]
 
                     df.iloc[:, 0] = df.iloc[:, 0].astype(str).str.strip()
                     df.iloc[:, 2] = pd.to_numeric(df.iloc[:, 2], errors="coerce")
-                    
-                    valid_codes = set(str(code) for codes in account_categories.values() if codes for code in codes)
+
+                    valid_codes = set(
+                        str(code)
+                        for codes in account_categories.values()
+                        if codes
+                        for code in codes
+                    )
                     df = df[df.iloc[:, 0].isin(valid_codes)]
 
                     categorized_data = {category: 0 for category in account_categories}
 
                     for _, row in df.iterrows():
                         try:
-                            account_code = int(row.iloc[0])  # Convert to integer for matching
-                            value = float(row.iloc[2])  # Ensure value is a float
+                            account_code = int(row.iloc[0])
+                            value = float(row.iloc[2])
                         except ValueError:
-                            continue  # Skip non-numeric account codes
+                            continue
 
                         for category, codes in account_categories.items():
                             if codes and account_code in codes:
                                 categorized_data[category] += value
 
-                    if categorized_data["Revenue"] and categorized_data["Cost of Goods Sold"]:
-                        categorized_data["Gross Profit"] = (
-                            categorized_data["Revenue"] - categorized_data["Cost of Goods Sold"]
+                    if categorized_data["REVENUE"] and categorized_data["COGS"]:
+                        categorized_data["GROSS PROFIT"] = (
+                            categorized_data["REVENUE"] - categorized_data["COGS"]
                         )
 
-                    categorized_data["Total Expenses"] = (
-                        categorized_data["Operating Expenses"] +
-                        categorized_data["HR + Benefit"] +
-                        categorized_data["Depreciation & Maintenance"]
+                    categorized_data["TOTAL EXPENSES"] = (
+                        categorized_data["OPERATIONAL EXPENSES"]
+                        + categorized_data["HUMAN RESOURCES"]
+                        + categorized_data["DEPRECIATION & MAINTENANCE"]
                     )
 
-                    if categorized_data["Gross Profit"] is not None:
-                        categorized_data["Net Profit"] = (
-                            categorized_data["Gross Profit"] - categorized_data["Total Expenses"] +
-                            categorized_data["Other Non-Operating (Income)/Expense + Tax"]
+                    if categorized_data["GROSS PROFIT"] is not None:
+                        categorized_data["NET PROFIT"] = (
+                            categorized_data["GROSS PROFIT"]
+                            - categorized_data["TOTAL EXPENSES"]
+                            + categorized_data["OTHER INCOME / EXPENSES"]
                         )
 
-                    filtered_df = pd.DataFrame([
-                        {"Category": category, "Value": value}
-                        for category, value in categorized_data.items() if value is not None
-                    ])
+                    filtered_df = pd.DataFrame(
+                        [
+                            {"Category": category, "Value": value}
+                            for category, value in categorized_data.items()
+                            if value is not None
+                        ]
+                    )
 
-                    cost_df = df[df.iloc[:, 0].astype(str).str.startswith(("6"))]
-                    column_name = df.columns[2] 
-                    cost_df[column_name] = pd.to_numeric(cost_df[column_name], errors="coerce")
+                    # Top expenses
+                    category_col = df.columns[0]
+                    df[category_col] = df[category_col].astype(int)
+                    operating_expense_df = df[
+                        df[category_col].isin(
+                            account_categories["OPERATIONAL EXPENSES"]
+                        )
+                    ].drop(columns=df.columns[0])
+                    operating_expense_df.columns = ["Category", "Value"]
 
-                    df_top_5 = cost_df.nlargest(4, column_name)[[df.columns[1], column_name]]
-                    df_top_5.columns = ["Category", "Value"]
-
-                    others_value = cost_df[~cost_df.index.isin(df_top_5.index)][df.columns[2]].sum()
-                    others_row = pd.DataFrame({"Category": ["Others"], "Value": [others_value]})
-
-                    df_top_5 = pd.concat([df_top_5, others_row], ignore_index=True)
-
-
-                    if filtered_df["Value"].max() > 1_000_000:
-                        filtered_df["Value"] /= 1_000_000
-                    if not df_top_5.empty and df_top_5["Value"].max() > 1_000_000:
-                        df_top_5["Value"] /= 1_000_000
+                    if filtered_df["Value"].max() > 1_000:
+                        filtered_df["Value"] /= 1_000
+                    if (
+                        not operating_expense_df.empty
+                        and operating_expense_df["Value"].max() > 1_000
+                    ):
+                        operating_expense_df["Value"] /= 1_000
 
                     if key not in results:
-                        results[key] = {"filtered_data": [], "top_5_expenses": []}
+                        results[key] = {"filtered_data": [], "operating_expenses": []}
 
-                    results[key].update({
-                        "filtered_data": filtered_df.to_dict(orient="records"),
-                        "top_5_expenses": df_top_5.to_dict(orient="records"),
-                    })
-                    
+                    results[key].update(
+                        {
+                            "filtered_data": filtered_df.to_dict(orient="records"),
+                            "operating_expenses": operating_expense_df.to_dict(
+                                orient="records"
+                            ),
+                        }
+                    )
 
                 elif "Budget" in file_name:
                     header_row_index = 6
                     df.columns = df.iloc[header_row_index]
                     duplicates = df.columns.duplicated(keep=False)
-                    df.columns = [f"{col}_{i}" if duplicates[i] else col for i, col in enumerate(df.columns)]
-                    df = df.iloc[header_row_index + 1:].reset_index(drop=True)
-                    month_cols = [col for col in df.columns.astype(str) if "nan" not in col.lower()]
-                    df = df[['nan_2', 'nan_3'] + month_cols]
-                    df['nan_2'] = df['nan_2'].fillna(df['nan_3'])
-                    df.drop(columns=['nan_3'], errors='ignore', inplace=True)
-                    df = df[df['nan_2'].isin(predefined_budget.keys())][['nan_2'] + month_cols]
-                    df['nan_2'] = df['nan_2'].map(predefined_budget)
-                    
+                    df.columns = [
+                        f"{col}_{i}" if duplicates[i] else col
+                        for i, col in enumerate(df.columns)
+                    ]
+                    df = df.iloc[header_row_index + 1 :].reset_index(drop=True)
+                    month_cols = [
+                        col
+                        for col in df.columns.astype(str)
+                        if "nan" not in col.lower()
+                    ]
+                    df = df[["nan_2", "nan_3"] + month_cols]
+                    df["nan_2"] = df["nan_2"].fillna(df["nan_3"])
+                    df.drop(columns=["nan_3"], errors="ignore", inplace=True)
+                    df = df[df["nan_2"].isin(predefined_budget.keys())][
+                        ["nan_2"] + month_cols
+                    ]
+                    df["nan_2"] = df["nan_2"].map(predefined_budget)
+
                     for month in df.columns[1:]:
                         key = f"{company}_{to_camel_case(month.split()[0])}_{year}"
-                        
+
                         if key not in results:
-                            results[key] = {"filtered_data": [], "top_5_expenses": [], "budget": []}
+                            results[key] = {
+                                "filtered_data": [],
+                                "operating_expenses": [],
+                                "budget": [],
+                            }
                         elif "budget" not in results[key]:
                             results[key]["budget"] = []
 
-                        budget_data = [{"Category": row["nan_2"], "Value": row[month]} for _, row in df.iterrows()]
+                        budget_data = [
+                            {"Category": row["nan_2"], "Value": row[month]}
+                            for _, row in df.iterrows()
+                        ]
 
                         values = [item["Value"] for item in budget_data]
-                        if max(values) > 1_000_000:
+                        if max(values) > 1_000:
                             for item in budget_data:
-                                item["Value"] /= 1_000_000
+                                item["Value"] /= 1_000
 
                         results[key]["budget"].extend(budget_data)
 
-
                 elif "JPCC vs Others" in file_name:
-                    
-                    df.iloc[4] = df.iloc[4].apply(lambda x: str(int(x)) if isinstance(x, float) and x.is_integer() else str(x))
-                    df.iloc[2] = df.iloc[2].replace("", None).ffill()                
+
+                    df.iloc[4] = df.iloc[4].apply(
+                        lambda x: (
+                            str(int(x))
+                            if isinstance(x, float) and x.is_integer()
+                            else str(x)
+                        )
+                    )
+                    df.iloc[2] = df.iloc[2].replace("", None).ffill()
                     df.iloc[3] = df.iloc[2].astype(str) + "_" + df.iloc[4].astype(str)
                     df.columns = df.iloc[3]
                     df = df.iloc[5:7]
@@ -816,7 +928,7 @@ def prepare_data(data_store, companies, selected_year):
                         "September": "Sep",
                         "Oktober": "Oct",
                         "November": "Nov",
-                        "Desember": "Dec"
+                        "Desember": "Dec",
                     }
 
                     for month in df.columns[1:]:
@@ -825,19 +937,27 @@ def prepare_data(data_store, companies, selected_year):
                         month_str = month_map.get(month_name, month_name)
                         key = f"{company}_{month_str}_{selected_year}"
                         if key not in results:
-                            results[key] = {"filtered_data": [], "top_5_expenses": [], "budget": []}
+                            results[key] = {
+                                "filtered_data": [],
+                                "operating_expenses": [],
+                                "budget": [],
+                            }
 
-                        if "jpcc_vs_others" not in results[key]:  
-                            results[key]["jpcc_vs_others"] = []  
+                        if "jpcc_vs_others" not in results[key]:
+                            results[key]["jpcc_vs_others"] = []
 
-                        for i, category in enumerate(df["Category"]): 
+                        for i, category in enumerate(df["Category"]):
                             entry = {
-                                "Category": category if selected_year == budget_year else f"{category}_LY",
-                                "Value": df.at[i, month]
+                                "Category": (
+                                    category
+                                    if selected_year == budget_year
+                                    else f"{category}_LY"
+                                ),
+                                "Value": df.at[i, month],
                             }
 
                             results[key]["jpcc_vs_others"].append(entry)
-    
+
     return results
 
 
@@ -847,9 +967,11 @@ def main():
     if not st.session_state.authenticated:
         return
 
-    data_store = helper.fetch_all_data()    
-    available_companies, available_years = helper.get_available_companies_and_years(data_store)
-    
+    data_store = helper.fetch_all_data()
+    available_companies, available_years = helper.get_available_companies_and_years(
+        data_store
+    )
+
     col1, col2, col3 = st.columns([4, 1, 1])
     with col1:
         st.markdown("<h3>Finance Dashboard</h3>", unsafe_allow_html=True)
@@ -859,12 +981,20 @@ def main():
             companies = available_companies
     with col3:
         current_year = dt.date.today().year
-        selected_year = st.selectbox("Select Year", available_years, index=available_years.index(current_year) if current_year in available_years else 0)
-        
+        selected_year = st.selectbox(
+            "Select Year",
+            available_years,
+            index=(
+                available_years.index(current_year)
+                if current_year in available_years
+                else 0
+            ),
+        )
+
     data = prepare_data(data_store, companies, selected_year)
     available_months = helper.get_available_months(data, companies, selected_year)
-    tab1, tab2, tab3 = st.tabs(["Monthly Dashboard", "YTD Dashboard","Data"])
-    
+    tab1, tab2, tab3 = st.tabs(["Monthly Dashboard", "YTD Dashboard", "Data"])
+
     with tab1:
         if available_months:
             col1, col2 = st.columns([4, 1])
@@ -872,7 +1002,12 @@ def main():
                 st.write("#")
                 st.markdown("<h4>Monthly Dashboard</h4>", unsafe_allow_html=True)
             with col2:
-                selected_month = st.selectbox("Select Month", available_months, index=len(available_months) - 1 if available_months else None, key="monthly")
+                selected_month = st.selectbox(
+                    "Select Month",
+                    available_months,
+                    index=len(available_months) - 1 if available_months else None,
+                    key="monthly",
+                )
             st.divider()
             display_monthly(data, selected_month, selected_year)
 
@@ -883,12 +1018,18 @@ def main():
                 st.write("#")
                 st.markdown("<h4>YTD Dashboard</h4>", unsafe_allow_html=True)
             with col2:
-                selected_month = st.selectbox("Select Month", available_months, index=len(available_months) - 1 if available_months else None, key="ytd")
+                selected_month = st.selectbox(
+                    "Select Month",
+                    available_months,
+                    index=len(available_months) - 1 if available_months else None,
+                    key="ytd",
+                )
             st.divider()
             display_ytd(data, selected_month, selected_year)
 
     with tab3:
         display_cash_flow_table(data, selected_year)
+
 
 if __name__ == "__main__":
     main()

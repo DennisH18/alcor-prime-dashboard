@@ -1,5 +1,2 @@
-# Ignore Streamlit secrets
 .streamlit/secrets.toml
-
-# Ignore environment variables
-.env
+.services/__pycache__

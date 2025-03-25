@@ -1,0 +1,16 @@
+{
+    "workbench.colorTheme": "Default Dark Modern",
+    "workbench.editor.decorations.colors": true,
+    "workbench.iconTheme": "material-icon-theme",
+    "workbench.sideBar.location": "left",
+    "workbench.statusBar.visible": true,
+    "workbench.tips.enabled": false,
+    "workbench.tree.enableStickyScroll": true,
+    "breadcrumbs.enabled": true,
+    "breadcrumbs.filePath": "on",
+    "workbench.activityBar.location": "top",
+    "workbench.preferredDarkColorTheme": "Default Dark Modern",
+    "editor.fontFamily": "monospace",
+    "editor.fontSize": 12,
+    "editor.formatOnSave": true
+}
