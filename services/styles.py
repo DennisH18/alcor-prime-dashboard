@@ -127,12 +127,12 @@ def style_page():
     [data-testid='stHeaderActionElements'] {
     display: none;
     }
-    # header {
-    #     visibility: hidden;
-    #     } 
-    # footer {
-    #     visibility: hidden;
-    #     }   
+    header {
+        visibility: hidden;
+        } 
+    footer {
+        visibility: hidden;
+        }   
     </style>
     """,
         unsafe_allow_html=True,
