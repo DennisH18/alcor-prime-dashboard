@@ -355,31 +355,29 @@ def display_pnl(df_final):
         if col in month_columns:
             updated_headers.append(f"{col} %")
 
-    header_html = (
-        "<tr>"
-        + "".join(
-            (
-                f"<th class='header-row'>%</th>"
-                if "%" in col
-                else (
-                    f"<th class='header-row'>Variance</th>"
-                    if "Variance" in col
-                    else (
-                        f"<th class='header-row'></th>"
-                        if "ategory" in col
-                        else f"<th class='header-row'>{col}</th>"
-                    )
-                )
-            )
-            for col in updated_headers
-        )
-        + "</tr>"
-    )
+
+    colors = ["#FFDDC1", "#FFABAB", "#D5AAFF", "#85E3FF", "#B9FBC0", "#FF9CEE"]
+
+    header_html = "<tr>"
+    for i, col in enumerate(updated_headers):
+        if i < 4: 
+            header_html += f"<th class='header-row'>{col}</th>"
+        else:
+            group_index = (i - 4) // 10 
+            color = colors[group_index % len(colors)] 
+
+            if "%" in col:
+                header_html += f"<th class='header-row' style='background-color: {color};'>%</th>"
+            elif "Variance" in col:
+                header_html += f"<th class='header-row' style='background-color: {color};'>Variance</th>"
+            else:
+                header_html += f"<th class='header-row' style='background-color: {color};'>{col}</th>"
+
+    header_html += "</tr>"
+
 
     # Generating Content
-
     html_rows = ""
-
     for main_cat, main_df in df_final.groupby("Main Category", sort=False):
         
         main_totals = {col: main_df[col].sum() for col in month_columns}
