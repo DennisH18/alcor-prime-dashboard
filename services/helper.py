@@ -158,27 +158,24 @@ def export_all_tables_to_excel(company_html_dict):
                     rowspan = int(cell.get("rowspan", 1))
                     value = cell.get_text(strip=True)
 
-                    # Detect if text should be bold
                     is_bold = cell.find("b") or cell.find("strong") or "font-weight: bold" in str(cell.get("style", "")).lower()
 
-                    # Inside the loop where you process each cell
-                    num_format = None  # Initialize to prevent UnboundLocalError
+                    num_format = None 
 
-                    if "COA" in cell.get("class", []):  
-                        value = cell.get_text(strip=True)
-                    elif value.endswith('%'):
+
+                    if value.endswith('%'):
                         try:
                             value = float(value.replace('%', '')) / 100
                             num_format = percent_format
                         except ValueError:
                             pass
-                    elif '(' in value and ')' in value:  # Negative number in ()
+                    elif '(' in value and ')' in value:
                         try:
                             value = -float(value.replace('(', '').replace(')', '').replace(',', ''))
                             num_format = number_format
                         except ValueError:
                             pass
-                    else:
+                    elif ',' in value:
                         try:
                             value = float(value.replace(',', ''))
                             num_format = number_format
@@ -197,8 +194,6 @@ def export_all_tables_to_excel(company_html_dict):
                     # Apply number format only if num_format is set
                     if num_format:
                         cell_ref.number_format = num_format  
-
-
 
                     # Merge columns
                     if colspan > 1:
