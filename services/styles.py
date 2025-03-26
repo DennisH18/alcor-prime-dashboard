@@ -86,6 +86,26 @@ pnl_table_style = """
         tr:hover {
             background-color: #e6f7ff;
         }
+        # td:nth-child(1), th:nth-child(1) {
+        #     position: sticky;
+        #     left: 0;
+        #     z-index: 2;
+        # }
+        # td:nth-child(2), th:nth-child(2) {
+        #     position: sticky;
+        #     left: 10px; /* Adjust based on actual column width */
+        #     z-index: 2;
+        # }
+        # td:nth-child(3), th:nth-child(3) {
+        #     position: sticky;
+        #     left: 100px; /* Adjust based on actual column width */
+        #     z-index: 2;
+        # }
+        # td:nth-child(4), th:nth-child(4) {
+        #     position: sticky;
+        #     left: 200px; /* Adjust based on actual column width */
+        #     z-index: 2;
+        # }
     </style>
     """
 

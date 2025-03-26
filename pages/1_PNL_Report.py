@@ -360,7 +360,9 @@ def display_pnl(df_final):
 
     header_html = "<tr>"
     for i, col in enumerate(updated_headers):
-        if i < 4: 
+        if i < 2:
+            header_html += f"<th class='header-row'></th>"
+        elif i < 4:
             header_html += f"<th class='header-row'>{col}</th>"
         else:
             group_index = (i - 4) // 10 
