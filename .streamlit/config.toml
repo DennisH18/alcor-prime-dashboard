@@ -1,3 +1,13 @@
 [theme]
 base="light"
 primaryColor="0055b3"
+
+[server]
+enableXsrfProtection = false  # (Optional) Disable XSRF protection
+enableCORS = false  # (Optional) Disable CORS
+
+[browser]
+gatherUsageStats = false  # Hide telemetry and analytics
+
+[client]
+showSidebarNav = false  # Hide the "Manage Apps" sidebar
