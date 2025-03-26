@@ -44,6 +44,7 @@ def fetch_all_data():
                             continue
 
                         for file_entry in file_entries:
+                            
                             if isinstance(file_entry, dropbox.files.FileMetadata) and file_entry.name.endswith(".xlsx"):
                                 file_path = f"/{company}/{year}/{file_entry.name}"
 
@@ -52,7 +53,7 @@ def fetch_all_data():
                                     xls = pd.ExcelFile(BytesIO(res.content))
 
                                     if "Management Report" in file_entry.name:
-                                        df = pd.read_excel(xls, sheet_name="PL", engine="openpyxl")
+                                        df = pd.read_excel(xls, engine="openpyxl")
                                         data_store[company][year][file_entry.name] = df
                                     elif "Budget" in file_entry.name:        
                                         df = pd.read_excel(xls, sheet_name=company, engine="openpyxl")

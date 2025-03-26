@@ -53,9 +53,27 @@ pnl_table_style = """
             text-align: center;
             position: sticky;
             top: 0;
-            background-color: #c0c0c0;
             box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
         }
+        
+        .sticky1, .sticky2, .sticky3, .sticky4 {
+            position: sticky;
+            z-index: 50;
+            background-color: inherit; !important;
+            outline: 1px solid #ddd;
+        }
+        .sticky1 { left: 1px; }
+        .sticky2 { left: 17px; }
+        .sticky3 { left: 34px; }
+        .sticky4 { left: 118px; }
+
+        .white {
+            background-color: white;
+        }
+        .gray {
+            background-color: #f2f2f2;
+        }
+
         th, td {
             padding: 8px;
             border: 1px solid #ddd;
@@ -70,13 +88,11 @@ pnl_table_style = """
         }
         .sub-category {
             font-weight: bold;
-            padding-left: 20px;
             background-color: #f9f9f9;
             text-align: left;
         }
         .sub-total {
             font-weight: bold;
-            padding-left: 20px;
             background-color: #ececec;
         }
         .main-total {
@@ -86,35 +102,17 @@ pnl_table_style = """
         tr:hover {
             background-color: #e6f7ff;
         }
-        # td:nth-child(1), th:nth-child(1) {
-        #     position: sticky;
-        #     left: 0;
-        #     z-index: 2;
-        # }
-        # td:nth-child(2), th:nth-child(2) {
-        #     position: sticky;
-        #     left: 10px; /* Adjust based on actual column width */
-        #     z-index: 2;
-        # }
-        # td:nth-child(3), th:nth-child(3) {
-        #     position: sticky;
-        #     left: 100px; /* Adjust based on actual column width */
-        #     z-index: 2;
-        # }
-        # td:nth-child(4), th:nth-child(4) {
-        #     position: sticky;
-        #     left: 200px; /* Adjust based on actual column width */
-        #     z-index: 2;
-        # }
     </style>
     """
+
 
 def style_page():
 
     st.set_page_config(layout="wide", page_icon="logo.png")
     st.logo("logo.png")
 
-    st.markdown("""
+    st.markdown(
+        """
     <style>
     .block-container {
         padding: 0rem 3rem;
@@ -129,11 +127,13 @@ def style_page():
     [data-testid='stHeaderActionElements'] {
     display: none;
     }
-    header {
-        visibility: hidden;
-        } 
-    footer {
-        visibility: hidden;
-        }   
+    # header {
+    #     visibility: hidden;
+    #     } 
+    # footer {
+    #     visibility: hidden;
+    #     }   
     </style>
-    """, unsafe_allow_html=True,)
+    """,
+        unsafe_allow_html=True,
+    )

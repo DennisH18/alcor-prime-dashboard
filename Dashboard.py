@@ -13,15 +13,41 @@ styles.style_page()
 all_coa = helper.get_all_coa()
 account_categories = helper.transform_to_category_codes(pnl_account_categories_dict)
 
-def waterfall_chart(data, title):
 
-    df = pd.DataFrame(
-        [
-            {"Category": category, "Values": data.get(category, 0)}
-            for category in account_categories.keys()
-            if category not in ["GROSS PROFIT", "TOTAL EXPENSES"]
-        ]
-    )
+def waterfall_chart(data, last_year_data, budget_data):
+
+    datasets = {"Actual": data, "Last Year": last_year_data, "Budget": budget_data}
+
+    df_list = []
+
+    for label, dataset in datasets.items():
+        running_total = 0
+        df_temp = []
+
+        for category, value in dataset.items():
+            if category in ["GROSS PROFIT", "TOTAL EXPENSES"]:
+                continue
+
+            if category not in ["REVENUE", "NET PROFIT"]:
+                value = -abs(value)
+
+            start = running_total
+            end = start + value
+            running_total = end
+
+            df_temp.append(
+                {
+                    "Category": category,
+                    "Start": start,
+                    "End": end,
+                    "Values": value,
+                    "Type": label,
+                }
+            )
+
+        df_list.append(pd.DataFrame(df_temp))
+
+    df = pd.concat(df_list, ignore_index=True)
 
     rename_map = {
         "REVENUE": "Revenue",
@@ -34,78 +60,45 @@ def waterfall_chart(data, title):
 
     df["Category"] = df["Category"].replace(rename_map)
 
-    df["Values"] = df.apply(
-        lambda row: (
-            row["Values"]
-            if row["Category"] in ["Revenue", "Net Profit", "Other Inc/Exp"]
-            else -abs(row["Values"])
-        ),
-        axis=1,
-    ).round(0)
-
-    df.loc[0, "Start"] = 0
-    df.loc[0, "End"] = df.loc[0, "Values"]
-
-    for i in range(1, len(df)):
-        df.loc[i, "Start"] = df.loc[i - 1, "End"]
-        df.loc[i, "End"] = df.loc[i, "Start"] + df.loc[i, "Values"]
-
-    color_map = {
-        "Revenue": "#008000",
-        "COGS": "#d9224c",
-        "HR+Benefit": "#d9224c",
-        "Op Exp": "#d9224c",
-        "Depr+Maint": "#d9224c",
-
-    }
-
-    color_map["Other Inc/Exp"] = (
-        "#008000" if data.get("OTHER INCOME / EXPENSES", 0) > 0 else "#d9224c"
-    )
-    color_map["Net Profit"] = (
-        "#008000" if data.get("NET PROFIT", 0) > 0 else "darkred"
-    )
-
     bars = (
         alt.Chart(df)
-        .mark_bar()
+        .mark_bar(size=30)
         .encode(
             x=alt.X(
                 "Category:N",
                 title="",
                 sort=df["Category"].tolist(),
-                axis=alt.Axis(labelAngle=0, labelOverlap="parity"),
+                axis=alt.Axis(labelAngle=0),
             ),
-            y=alt.Y(
-                "Start:Q",
-                title=None            ),
+            y=alt.Y("Start:Q", title="Amount"),
             y2="End:Q",
             color=alt.Color(
-                "Category:N",
+                "Type:N",
                 scale=alt.Scale(
-                    domain=list(color_map.keys()), range=list(color_map.values())
+                    range=["#a55073", "#75aadb", "#733c96"],
                 ),
-                legend=None,
+                legend=alt.Legend(title=None),
             ),
-            tooltip=["Category", "Values"],
+            xOffset="Type:N",
+            tooltip=[
+                alt.Tooltip("Category:N", title="Category"),
+                alt.Tooltip("Values:Q", title="Values", format=","),
+                alt.Tooltip("Type:N", title="Type"),
+            ],
         )
     )
 
     text = bars.mark_text(
         align="center",
-        fontSize=12,
-        dy=alt.expr(alt.expr.if_(alt.datum.Values > 0, -10, 10)),
+        fontSize=10,
+        dy=alt.expr(alt.expr.if_(alt.datum.Values > 0, 10, -10)),
     ).encode(
-        text=alt.Text("Values:Q", format=","),
+        text=alt.Text("Values:Q", format=",.0f"),
         color=alt.value("black"),
-        y=alt.Y("End:Q"),
     )
 
-    chart = (bars + text).properties(
-        height=270, title=alt.TitleParams(text=title, fontSize=16)
-    )
+    chart = (bars + text).properties(height=280)
     st.altair_chart(chart, use_container_width=True)
-
 
 
 def create_pie_chart(df):
@@ -117,7 +110,9 @@ def create_pie_chart(df):
     }
 
     present_categories = df["Category"].unique().tolist()
-    filtered_color_mapping = {k: v for k, v in color_mapping.items() if k in present_categories}
+    filtered_color_mapping = {
+        k: v for k, v in color_mapping.items() if k in present_categories
+    }
 
     df["Color"] = df["Category"].map(filtered_color_mapping)
 
@@ -127,7 +122,9 @@ def create_pie_chart(df):
     df["startAngle"] = df["cumsum"] - df["theta"]
     df["midAngle"] = df["startAngle"] + df["theta"] / 2
     df["midAngleDeg"] = df["midAngle"] * 180 / 3.1415
-    df["Percentage"] = (df["Values"] / total * 100).round(0).astype(int).astype(str) + "%"
+    df["Percentage"] = (df["Values"] / total * 100).round(0).astype(int).astype(
+        str
+    ) + "%"
 
     pie_chart = (
         alt.Chart(df)
@@ -136,8 +133,10 @@ def create_pie_chart(df):
             theta=alt.Theta("Values:Q", stack=True),
             color=alt.Color(
                 "Category:N",
-                scale=alt.Scale(domain=list(filtered_color_mapping.keys()), 
-                                range=list(filtered_color_mapping.values())),
+                scale=alt.Scale(
+                    domain=list(filtered_color_mapping.keys()),
+                    range=list(filtered_color_mapping.values()),
+                ),
                 legend=alt.Legend(title=None, labelFontSize=12),
             ),
             tooltip=[
@@ -166,7 +165,6 @@ def create_pie_chart(df):
     )
 
     return pie_chart + text_labels
-
 
 
 def comparison_pie_chart(pie_data):
@@ -418,10 +416,7 @@ def display_monthly(data, selected_month, selected_year):
             st.markdown("<h5>Income Statement</h5>", unsafe_allow_html=True)
             col1, col2 = st.columns(2)
 
-            with col1:
-                waterfall_chart(filtered_data, "Actual")
-            with col2:
-                waterfall_chart(budget, "Budget")
+            waterfall_chart(filtered_data, filtered_data_last_year, budget)
 
         st.divider()
 
@@ -547,12 +542,8 @@ def display_ytd(data, selected_month, selected_year):
 
         with st.container(border=True, height=355):
             st.markdown("<h5>Income Statement</h5>", unsafe_allow_html=True)
-            col1, col2 = st.columns(2)
 
-            with col1:
-                waterfall_chart(ytd_filtered, "Actual")
-            with col2:
-                waterfall_chart(ytd_budget, "Budget")
+            waterfall_chart(ytd_filtered, ytd_filtered_last_year, ytd_budget)
 
         st.divider()
 
@@ -723,8 +714,7 @@ def display_cash_flow_table(data, selected_year):
 
         st.markdown(f"<h4>{company}</h4>", unsafe_allow_html=True)
         st.components.v1.html(table_html, height=1050, scrolling=True)
-        company_html_dict[company]  = table_html
-
+        company_html_dict[company] = table_html
 
     excel_file = helper.export_all_tables_to_excel(company_html_dict)
 
@@ -765,7 +755,9 @@ def prepare_data(data_store, companies, selected_year):
     month_abbr = set(calendar.month_abbr[1:])
 
     for company in companies:
+
         years_to_check = [selected_year, selected_year - 1]
+
         for year in years_to_check:
 
             for file_name, df in data_store[company][year].items():

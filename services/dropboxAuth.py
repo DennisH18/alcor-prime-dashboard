@@ -5,6 +5,7 @@ APP_KEY = st.secrets["dropbox"]["APP_KEY"]
 APP_SECRET = st.secrets["dropbox"]["APP_SECRET"]
 REFRESH_TOKEN = st.secrets["dropbox"]["REFRESH_TOKEN"]
 
+
 def get_access_token():
     url = "https://api.dropbox.com/oauth2/token"
     data = {
@@ -14,4 +15,7 @@ def get_access_token():
         "client_secret": APP_SECRET,
     }
     response = requests.post(url, data=data)
+    
+
+
     return response.json()["access_token"]

@@ -18,6 +18,7 @@ def to_camel_case(month):
 
 @st.cache_data
 def prepare_pnl_data(data_store, companies, selected_year):
+
     results = {}
     month_abbr = set(calendar.month_abbr[1:])
 
@@ -217,6 +218,7 @@ def transform_data(data, selected_year, selected_month):
                 ]
             )
         ][month_columns].sum()
+
         other_inc = df_final[df_final["Main Category"] == "OTHER INCOME / EXPENSES"][
             month_columns
         ].sum()
@@ -246,13 +248,23 @@ def transform_data(data, selected_year, selected_month):
             ignore_index=True,
         )
 
+        # Ensure 'Main Category' follows the order in account_categories
         df_final["Main Category"] = pd.Categorical(
             df_final["Main Category"],
             categories=account_categories.keys(),
             ordered=True,
         )
 
-        df_final = df_final.sort_values(by=["Main Category"], ascending=[True])
+        subcategory_order = {
+            sub: (i, j) 
+            for i, (main_cat, subcats) in enumerate(account_categories.items()) if subcats is not None
+            for j, sub in enumerate(subcats) if sub is not None
+        }
+
+        df_final["Subcategory Order"] = df_final["Subcategory"].map(lambda x: subcategory_order.get(x, (999, 999)))
+        df_final = df_final.sort_values(by=["Main Category", "Subcategory Order"], ascending=[True, True])
+        df_final = df_final.drop(columns=["Subcategory Order"])
+
 
         new_columns = {}
 
@@ -360,10 +372,12 @@ def display_pnl(df_final):
 
     header_html = "<tr>"
     for i, col in enumerate(updated_headers):
-        if i < 2:
-            header_html += f"<th class='header-row'></th>"
-        elif i < 4:
-            header_html += f"<th class='header-row'>{col}</th>"
+
+        if i in [0,1]:  
+            header_html += f"<th class='header-row sticky{i+1} gray' style='z-index: 100;'></th>"
+        elif i in [2,3]:
+            header_html += f"<th class='header-row sticky{i+1} gray' style='z-index: 100;'>{col}</th>"
+
         else:
             group_index = (i - 4) // 10 
             color = colors[group_index % len(colors)] 
@@ -377,7 +391,6 @@ def display_pnl(df_final):
 
     header_html += "</tr>"
 
-
     # Generating Content
     html_rows = ""
     for main_cat, main_df in df_final.groupby("Main Category", sort=False):
@@ -385,8 +398,8 @@ def display_pnl(df_final):
         main_totals = {col: main_df[col].sum() for col in month_columns}
 
         if main_cat in ["GROSS PROFIT", "TOTAL EXPENSES", "NET PROFIT"]:
-            total_row = [f"<td colspan='4'><b>{main_cat}</b></td>"]
-            
+            total_row = [f"<td colspan='4' class='sticky1'><b>{main_cat}</b></td>"]
+
             for col in headers[4:]:
                 total_row.append(f"<td><b>{format_value(main_totals[col])}</b></td>")
                 if col in month_columns:
@@ -395,25 +408,30 @@ def display_pnl(df_final):
             html_rows += f"<tr class='main-total'>{''.join(total_row)}</tr>"
             continue
 
-        html_rows += f'<tr class="main-category"><td colspan="{len(updated_headers)}">{main_cat}</td></tr>'
+        html_rows += f"<tr class='main-category'><td colspan='4'class='sticky1'>{main_cat}</td><td colspan='{len(updated_headers)-4}'></td></tr>"
 
         for sub_cat, sub_df in main_df.groupby("Subcategory", sort=False):
-            html_rows += f'<tr class="sub-category"><td></td><td colspan="{len(updated_headers)-1}">{sub_cat}</td></tr>'
-            
+
+            html_rows += f"<tr class='sub-category'><td colspan='4'class='sticky1'>{sub_cat}</td><td colspan='{len(updated_headers)-4}'></td></tr>"
+
             sub_totals = {col: sub_df[col].sum() for col in month_columns}
 
             for _, row in sub_df.iterrows():
-                row_cells = ["<td></td>", "<td></td>"]
+                row_cells = ["<td class='sticky1 white'></td>", "<td class='sticky2 white'></td>"]
 
                 for col in headers[2:]:
 
                     value = row[col] if pd.notna(row[col]) else 0
 
-                    if col != "COA":
-                        row_cells.append(f"<td>{format_value(value)}</td>")
-                    else:
-                        row_cells.append(f"<td>{(value)}</td>")
+                    if col == "COA":
+                        row_cells.append(f"<td class='sticky3 white'>{(value)}</td>")
+                    elif col == "Description":
+                        row_cells.append(f"<td class='sticky4 white'>{(value)}</td>")
 
+                    else:
+                        if sub_cat == "Other Expenses":
+                            value = -value 
+                        row_cells.append(f"<td>{format_value(value)}</td>")
 
                     if col in month_columns:
                         row_cells.append(f"<td></td>")
@@ -421,7 +439,7 @@ def display_pnl(df_final):
                 html_rows += f"<tr class='code-row'>{''.join(row_cells)}</tr>"
 
             # Subcategory Total Row
-            total_row = [f"<td></td><td colspan=3><b>Total {sub_cat}</b></td>"]
+            total_row = [f"<td class='sticky1'></td><td colspan=3 class='sticky2'><b>Total {sub_cat}</b></td>"]
             for col in headers[4:]:
                 if col in month_columns:
                     total_row.append(f"<td><b>{format_value(sub_totals[col])}</b></td>")
@@ -433,11 +451,12 @@ def display_pnl(df_final):
             html_rows += f"<tr class='sub-total'>{''.join(total_row)}</tr>"
 
         # Main Category Total Row
-        total_row = [f"<td colspan=4><b>TOTAL {main_cat}</b></td>"]
+        total_row = [f"<td colspan=4 class='sticky1'><b>TOTAL {main_cat}</b></td>"]
         for col in headers[4:]:
             total_row.append(f"<td><b>{format_value(main_totals[col])}</b></td>")
             if col in month_columns:
                 total_row.append("<td><b>100%</b></td>")
+
 
         html_rows += f"<tr class='main-total'>{''.join(total_row)}</tr>"
 
