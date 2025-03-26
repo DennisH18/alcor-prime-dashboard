@@ -404,10 +404,17 @@ def display_pnl(df_final):
 
             for _, row in sub_df.iterrows():
                 row_cells = ["<td></td>", "<td></td>"]
+
                 for col in headers[2:]:
+
                     value = row[col] if pd.notna(row[col]) else 0
-                    row_cells.append(f"<td>{format_value(value)}</td>")
-                    
+
+                    if col != "COA":
+                        row_cells.append(f"<td>{format_value(value)}</td>")
+                    else:
+                        row_cells.append(f"<td>{(value)}</td>")
+
+
                     if col in month_columns:
                         row_cells.append(f"<td></td>")
 
