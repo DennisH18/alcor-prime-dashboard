@@ -15,7 +15,5 @@ def get_access_token():
         "client_secret": APP_SECRET,
     }
     response = requests.post(url, data=data)
-    
-
 
     return response.json()["access_token"]

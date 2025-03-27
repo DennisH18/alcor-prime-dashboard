@@ -54,6 +54,8 @@ pnl_table_style = """
             position: sticky;
             top: 0;
             box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+            outline: 1px solid #ddd;
+
         }
         
         .sticky1, .sticky2, .sticky3, .sticky4 {
