@@ -11,3 +11,5 @@ opencv-python-headless
 streamlit_js_eval
 supabase
 bs4
+streamlit_url_fragment
+streamlit-cookies-controller

@@ -55,7 +55,6 @@ pnl_table_style = """
             top: 0;
             box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
             outline: 1px solid #ddd;
-
         }
         
         .sticky1, .sticky2, .sticky3, .sticky4 {
@@ -76,11 +75,14 @@ pnl_table_style = """
             background-color: #f2f2f2;
         }
 
-        th, td {
+        td {
             padding: 8px;
             border: 1px solid #ddd;
+            text-align: right;
         }
         th {
+            padding: 8px;
+            border: 1px solid #ddd;
             background-color: #f2f2f2;
         }
         .main-category {
@@ -117,24 +119,25 @@ def style_page():
         """
     <style>
     .block-container {
-        padding: 0rem 3rem;
+        padding: 3rem;
     }
-    h4, h5, p, div {
+    h4, h5, div, span {
         margin: 0px; 
         padding: 0px;
     }
     .stMarkdown {
-        margin: -5px;
+        margin: 0px;
+        padding: 0px;
     }
     [data-testid='stHeaderActionElements'] {
     display: none;
     }
-    header {
-        visibility: hidden;
-        } 
-    footer {
-        visibility: hidden;
-        }   
+    # header {
+    #     visibility: hidden;
+    #     } 
+    # footer {
+    #     visibility: hidden;
+    #     }   
     </style>
     """,
         unsafe_allow_html=True,

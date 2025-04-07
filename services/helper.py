@@ -6,11 +6,11 @@ from io import BytesIO
 from collections import OrderedDict
 
 import services.dropboxAuth as dropboxAuth
-from services.data import pnl_account_categories_dict
 
 from bs4 import BeautifulSoup
 from openpyxl import Workbook
 from openpyxl.styles import Border, Side, Font, PatternFill
+import services.supabaseService as supabaseService
 
 
 access_token = dropboxAuth.get_access_token()
@@ -94,39 +94,39 @@ def get_available_companies_and_years(data_store):
     return companies, years[1:] if len(years) > 1 else []
 
 
-def get_all_coa():
-    codes = []
-    def recurse_dict(d):
-        for key, value in d.items():
-            if isinstance(value, dict):
-                recurse_dict(value)  
-            else:
-                codes.append(key)
-    recurse_dict(pnl_account_categories_dict)
-
-    return codes
-
-
 def transform_to_category_codes(pnl_account_categories_dict):
+    desired_order = [
+        "REVENUE",
+        "COGS",
+        "HUMAN RESOURCES",
+        "OPERATIONAL EXPENSES",
+        "OTHER INCOME / EXPENSES"
+    ]
+
     transformed_dict = OrderedDict()
 
+    raw_transformed = {}
     for main_category, subcategories in pnl_account_categories_dict.items():
         if isinstance(subcategories, dict):
             category_codes = []
             for subcategory, codes in subcategories.items():
                 if isinstance(codes, dict):
                     category_codes.extend(codes.keys())
-            transformed_dict[main_category] = category_codes
+            raw_transformed[main_category] = category_codes
+
+    for category in desired_order:
+        if category in raw_transformed:
+            transformed_dict[category] = raw_transformed.pop(category)
+
+    for category, codes in raw_transformed.items():
+        transformed_dict[category] = codes
 
     transformed_items = list(transformed_dict.items())
-
-    transformed_items.insert(2, ("GROSS PROFIT", None))  
-    transformed_items.insert(6, ("TOTAL EXPENSES", None))  
+    transformed_items.insert(2, ("GROSS PROFIT", None))
+    transformed_items.insert(6, ("TOTAL EXPENSES", None))
     transformed_items.append(("NET PROFIT", None))
 
-    transformed_dict = OrderedDict(transformed_items)
-
-    return transformed_dict
+    return OrderedDict(transformed_items)
 
 
 def export_all_tables_to_excel(company_html_dict):
@@ -217,3 +217,35 @@ def export_all_tables_to_excel(company_html_dict):
     wb.save(output)
     output.seek(0)
     return output
+
+def get_pnl_account_categories_dict():
+
+    df = pd.DataFrame(supabaseService.fetch_data("COA"))
+
+    pnl_account_categories_dict = {}
+    for _, row in df.iterrows():
+        main_category = row['main_category']
+        subcategory = row['subcategory']
+        coa = row['coa']
+        description = row['description']
+        
+        if main_category not in pnl_account_categories_dict:
+            pnl_account_categories_dict[main_category] = {}
+        if subcategory not in pnl_account_categories_dict[main_category]:
+            pnl_account_categories_dict[main_category][subcategory] = {}
+        pnl_account_categories_dict[main_category][subcategory][coa] = description
+    
+    return pnl_account_categories_dict
+
+
+def get_all_coa():
+    codes = []
+    def recurse_dict(d):
+        for key, value in d.items():
+            if isinstance(value, dict):
+                recurse_dict(value)  
+            else:
+                codes.append(key)
+    recurse_dict(get_pnl_account_categories_dict())
+
+    return codes
