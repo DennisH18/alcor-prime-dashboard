@@ -1,5 +1,36 @@
 import streamlit as st
 
+def style_page():
+
+    st.markdown(
+        """
+    <style>
+    .block-container {
+        padding: 3rem;
+    }
+    h4, h5, div, span {
+        margin: 0px; 
+        padding: 0px;
+    }
+    .stMarkdown {
+        margin: 0px;
+        padding: 0px;
+    }
+    [data-testid='stHeaderActionElements'] {
+    display: none;
+    }
+    header {
+        visibility: hidden;
+        } 
+    footer {
+        visibility: hidden;
+        }   
+    </style>
+    """,
+        unsafe_allow_html=True,
+    )
+
+
 cf_table_style = """
         <style>
             table { 
@@ -108,36 +139,3 @@ pnl_table_style = """
     </style>
     """
 
-
-def style_page():
-
-    st.set_page_config(layout="wide", page_icon="logo.png")
-    st.logo("logo.png")
-
-    st.markdown(
-        """
-    <style>
-    .block-container {
-        padding: 3rem;
-    }
-    h4, h5, div, span {
-        margin: 0px; 
-        padding: 0px;
-    }
-    .stMarkdown {
-        margin: 0px;
-        padding: 0px;
-    }
-    [data-testid='stHeaderActionElements'] {
-    display: none;
-    }
-    header {
-        visibility: hidden;
-        } 
-    footer {
-        visibility: hidden;
-        }   
-    </style>
-    """,
-        unsafe_allow_html=True,
-    )

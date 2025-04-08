@@ -5,6 +5,9 @@ import services.styles as styles
 import services.supabaseService as supabaseService
 import services.helper as helper
 
+st.set_page_config(layout="wide", page_icon="logo.png")
+st.logo("logo.png")
+
 styles.style_page()
 
 def main():

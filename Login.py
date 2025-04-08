@@ -7,6 +7,8 @@ from streamlit_url_fragment import get_fragment
 from streamlit_cookies_controller import CookieController
 from services.supabaseService import supabase_client
 
+st.set_page_config(layout="wide", page_icon="logo.png")
+st.logo("logo.png")
 
 cookie_manager = CookieController()
 

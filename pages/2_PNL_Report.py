@@ -6,8 +6,11 @@ import calendar
 import services.helper as helper
 import services.styles as styles
 
+st.set_page_config(layout="wide", page_icon="logo.png")
+st.logo("logo.png")
 
 styles.style_page()
+
 pnl_account_categories_dict = helper.get_pnl_account_categories_dict()
 account_categories = helper.transform_to_category_codes(pnl_account_categories_dict)
 
