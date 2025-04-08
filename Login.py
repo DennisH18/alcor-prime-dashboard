@@ -1,26 +1,18 @@
 import streamlit as st
-from supabase import create_client
-from streamlit_url_fragment import get_fragment
-from streamlit_cookies_controller import CookieController
+st.set_page_config(layout="wide", page_icon="logo.png")
+
 import base64
 import cv2
+import services.styles as styles
+
+from streamlit_url_fragment import get_fragment
+from streamlit_cookies_controller import CookieController
 from services.supabaseService import supabase_client
 
+
 cookie_manager = CookieController()
-hide_sidebar = """
-    <style>
-        [data-testid="stSidebar"] { display: none; }
-    </style>
-"""
-st.markdown(hide_sidebar, unsafe_allow_html=True)
-REDIRECT_URL = st.secrets["dropbox"]["REFRESH_TOKEN"]
 
-def image_to_base64(image_path):
-    image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
-    _, encoded_image = cv2.imencode(".png", image)
-    base64_image = base64.b64encode(encoded_image.tobytes()).decode("utf-8")
-    return base64_image
-
+REDIRECT_URI = st.secrets["google"]["REDIRECT_URI"]
 
 def main():
     col1, col2, col3 = st.columns([1,2,1])
@@ -28,18 +20,17 @@ def main():
             
         with st.container(border=True):
 
-            logo_base64 = image_to_base64("logo.png")
 
             st.markdown(
                 f"""
                 <div style="text-align: center; margin-top: 40px; margin-bottom: 40px">
-                    <img src="data:image/png;base64,{logo_base64}" style="max-width: 150px; max-height: 150px; margin-bottom:30px"/>
                     <p style="font-size: 25px; font-weight: 600; margin-bottom:10px">Alcor Prime Dashboard</p>
                     <p style="margin-bottom:40px"> Sign in with your company's Google Account </p>  
                 </div>
                 """, 
                 unsafe_allow_html=True
             )
+
             subcol1, subcol2, subcol3, subcol4 = st.columns([4,1,2,4])
             with subcol2:
                 st.markdown(
@@ -54,7 +45,7 @@ def main():
                     response = supabase_client.auth.sign_in_with_oauth({
                         "provider": "google",
                         "options": {
-                            "redirect_to": "http://localhost:8501/"
+                            "redirect_to": REDIRECT_URI
                         }
                     })
                     st.markdown(f"""
@@ -88,6 +79,8 @@ def main():
                             st.session_state["access_token"] = access_token
                             st.session_state["authenticated"] = True
                             st.session_state["user_id"] = user_id
+
+                            print("Sucess Log in")
 
                             st.switch_page("pages/1_Dashboard.py")
 
