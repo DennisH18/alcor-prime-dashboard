@@ -6,8 +6,3 @@ primaryColor="0055b3"
 enableXsrfProtection = false  # (Optional) Disable XSRF protection
 enableCORS = false  # (Optional) Disable CORS
 
-[browser]
-gatherUsageStats = false  # Hide telemetry and analytics
-
-[client]
-showSidebarNav = false  # Hide the "Manage Apps" sidebar

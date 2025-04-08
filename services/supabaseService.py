@@ -101,14 +101,13 @@ def save_coa_data(updated_data, original_data):
             print(f"Error deleting COA {row['coa']}: {e}")
             
 
-def save_user_data(updated_data, original_data):
 
-    #add to auth first
-    
+def save_user_data(updated_data, original_data):
     updated_ids = []
 
     for _, row in updated_data.iterrows():
         data_dict = row.to_dict()
+        email = data_dict.get("email")
 
         if "id" in data_dict and pd.notnull(data_dict["id"]):
             updated_ids.append(data_dict["id"])
@@ -117,11 +116,25 @@ def save_user_data(updated_data, original_data):
                 .eq("id", data_dict["id"]) \
                 .execute()
         else:
-            inserted = supabase_client.table("Users") \
-                .insert(data_dict) \
+            auth_users = supabase_client.auth.admin.list_users()
+            existing_user = next((u for u in auth_users if u.email == email), None)
+
+            if existing_user:
+                auth_user_id = existing_user.id
+            else:
+                auth_response = supabase_client.auth.admin.create_user({
+                    "email": email,
+                    "password": "temporary-password",
+                    "email_confirm": True
+                })
+                auth_user_id = auth_response.user.id
+
+            data_dict["id"] = auth_user_id
+            updated_ids.append(auth_user_id)
+
+            supabase_client.table("Users") \
+                .upsert(data_dict) \
                 .execute()
-            if inserted.data and "id" in inserted.data[0]:
-                updated_ids.append(inserted.data[0]["id"])
 
     if "id" in original_data.columns:
         original_ids = set(original_data["id"].dropna())

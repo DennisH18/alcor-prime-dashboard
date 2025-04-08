@@ -3,17 +3,21 @@ import pandas as pd
 import datetime as dt
 import altair as alt
 import calendar
+from streamlit_url_fragment import get_fragment
+from streamlit_cookies_controller import CookieController
 
 import services.helper as helper
 import services.styles as styles
-import services.auth as auth
 import services.supabaseService as supabaseService
 
 
+
 styles.style_page()
+
 all_coa = helper.get_all_coa()
 pnl_account_categories_dict = helper.get_pnl_account_categories_dict()
 account_categories = helper.transform_to_category_codes(pnl_account_categories_dict)
+cookie_manager = CookieController()
 
 
 def waterfall_chart(data, last_year_data, budget_data):
@@ -743,7 +747,7 @@ def prepare_data(data_store, companies, selected_year):
     results = {}
 
     predefined_budget = {
-        "TOTAL REVENUES": "REVENUE",
+        "NET REVENUE": "REVENUE",
         "TOTAL COGS": "COGS",
         "GROSS PROFIT": "GROSS PROFIT",
         "TOTAL HUMAN RESOURCES": "HUMAN RESOURCES",
@@ -950,6 +954,9 @@ def prepare_data(data_store, companies, selected_year):
 
 
 def main():
+
+    if not helper.verify_user():
+        st.switch_page("Login.py")
 
     data_store = helper.fetch_all_data()
     available_companies, available_years = helper.get_available_companies_and_years(

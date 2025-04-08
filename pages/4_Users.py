@@ -19,9 +19,10 @@ def main():
     original_df = df.copy()
 
     editable_df = df.drop(columns=["id"], errors="ignore")
-    editable_df = editable_df[["name", "role", "company"]]
+    editable_df = editable_df[["email", "name", "role", "company"]]
 
     column_config = {
+        "email": st.column_config.TextColumn("Email"),
         "name": st.column_config.TextColumn("Name"),
         "role": st.column_config.TextColumn("Role"),
         "company": st.column_config.SelectboxColumn("Company", options=companies),
@@ -34,6 +35,9 @@ def main():
         use_container_width=True, 
         hide_index=True
     )
+
+    edited_df
+    original_df
 
     if "id" in df.columns and len(edited_df) == len(original_df):
         edited_df["id"] = original_df["id"]

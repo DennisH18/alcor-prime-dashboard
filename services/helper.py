@@ -6,15 +6,18 @@ from io import BytesIO
 from collections import OrderedDict
 
 import services.dropboxAuth as dropboxAuth
+from services.supabaseService import supabase_client
 
 from bs4 import BeautifulSoup
 from openpyxl import Workbook
 from openpyxl.styles import Border, Side, Font, PatternFill
 import services.supabaseService as supabaseService
+from streamlit_cookies_controller import CookieController
 
 
 access_token = dropboxAuth.get_access_token()
 dbx = dropbox.Dropbox(access_token)
+cookie_manager = CookieController()
 
 
 @st.cache_data
@@ -249,3 +252,21 @@ def get_all_coa():
     recurse_dict(get_pnl_account_categories_dict())
 
     return codes
+
+def verify_user():
+
+    token = cookie_manager.get("access_token")
+    if token:
+        try:
+            user = supabase_client.auth.get_user(token)
+            if user:
+                return True
+            else:
+                st.warning("Invalid token or user not found.")
+                return False
+        except Exception as e:
+            st.error(f"Error verifying user: {e}")
+            return False 
+    else:
+        st.warning("No access token found.")
+        return None

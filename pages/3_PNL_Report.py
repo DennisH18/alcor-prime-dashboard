@@ -5,7 +5,6 @@ import calendar
 
 import services.helper as helper
 import services.styles as styles
-import services.auth as auth
 
 
 styles.style_page()
