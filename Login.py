@@ -10,7 +10,6 @@ from services.supabaseService import supabase_client
 
 cookie_manager = CookieController()
 
-styles.style_page()
 hide_sidebar = """
     <style>
         [data-testid="stSidebar"] { display: none; }
