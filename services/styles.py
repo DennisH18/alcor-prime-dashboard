@@ -46,13 +46,12 @@ pnl_table_style = """
             border-collapse: collapse;
             font-family: Arial, sans-serif;
             font-size: 12px;
-            overflow-y: auto;
         }
         .header-row{
             font-weight: bold;
             text-align: center;
             position: sticky;
-            top: 0;
+            top: 1px;
             box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
             outline: 1px solid #ddd;
         }
@@ -132,12 +131,12 @@ def style_page():
     [data-testid='stHeaderActionElements'] {
     display: none;
     }
-    # header {
-    #     visibility: hidden;
-    #     } 
-    # footer {
-    #     visibility: hidden;
-    #     }   
+    header {
+        visibility: hidden;
+        } 
+    footer {
+        visibility: hidden;
+        }   
     </style>
     """,
         unsafe_allow_html=True,

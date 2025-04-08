@@ -10,6 +10,12 @@ styles.style_page()
 
 
 def main():
+
+    if not helper.verify_user():
+        st.switch_page("Login.py")
+        return
+
+        
     df = pd.DataFrame(supabaseService.fetch_data("JPCC vs Others"))
     data_store = helper.fetch_all_data()
     save_success = False

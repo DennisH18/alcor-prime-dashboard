@@ -3,13 +3,10 @@ import pandas as pd
 import datetime as dt
 import altair as alt
 import calendar
-from streamlit_url_fragment import get_fragment
-from streamlit_cookies_controller import CookieController
 
 import services.helper as helper
 import services.styles as styles
 import services.supabaseService as supabaseService
-
 
 
 styles.style_page()
@@ -17,7 +14,6 @@ styles.style_page()
 all_coa = helper.get_all_coa()
 pnl_account_categories_dict = helper.get_pnl_account_categories_dict()
 account_categories = helper.transform_to_category_codes(pnl_account_categories_dict)
-cookie_manager = CookieController()
 
 
 def waterfall_chart(data, last_year_data, budget_data):
@@ -57,6 +53,7 @@ def waterfall_chart(data, last_year_data, budget_data):
 
     rename_map = {
         "REVENUE": "Revenue",
+        "COGS": "COGS",
         "HUMAN RESOURCES": "HR+Benefit",
         "OPERATIONAL EXPENSES": "Op Exp",
         "DEPRECIATION & MAINTENANCE": "Depr+Maint",
@@ -66,6 +63,7 @@ def waterfall_chart(data, last_year_data, budget_data):
 
     df["Category"] = df["Category"].replace(rename_map)
 
+
     bars = (
         alt.Chart(df)
         .mark_bar(size=30)
@@ -73,7 +71,7 @@ def waterfall_chart(data, last_year_data, budget_data):
             x=alt.X(
                 "Category:N",
                 title="",
-                sort=df["Category"].tolist(),
+                sort=alt.Sort(rename_map.values()),
                 axis=alt.Axis(labelAngle=0),
             ),
             y=alt.Y("Start:Q", title="Amount"),
@@ -107,21 +105,17 @@ def waterfall_chart(data, last_year_data, budget_data):
     st.altair_chart(chart, use_container_width=True)
 
 
-def create_pie_chart(df):
-
+def create_pie_chart(df, title):
     color_mapping = {
-        "JPCC": "#36416d",
-        "Others": "#75aadb",
-        "JPCC_LY": "#36416d",
-        "Others_LY": "#75aadb",
+        "JPCC": "#75aadb",
+        "Others": "#36416d"
     }
 
-    present_categories = df["Category"].unique().tolist()
-    filtered_color_mapping = {
-        k: v for k, v in color_mapping.items() if k in present_categories
-    }
+    df["CategoryPrefix"] = df["Category"].str.split("_").str[0]
 
-    df["Color"] = df["Category"].map(filtered_color_mapping)
+    present_mapping = {
+        k: v for k, v in color_mapping.items() if k in df["CategoryPrefix"].unique()
+    }
 
     total = df["Values"].sum()
     df["theta"] = df["Values"] / total * 2 * 3.1415
@@ -129,23 +123,32 @@ def create_pie_chart(df):
     df["startAngle"] = df["cumsum"] - df["theta"]
     df["midAngle"] = df["startAngle"] + df["theta"] / 2
     df["midAngleDeg"] = df["midAngle"] * 180 / 3.1415
-    df["Percentage"] = (df["Values"] / total * 100).round(0).astype(int).astype(
-        str
-    ) + "%"
+    df["Percentage"] = (df["Values"] / total * 100).round(0).astype(int).astype(str) + "%"
+
+    color_enc = alt.Color(
+        "CategoryPrefix:N",
+        legend=alt.Legend(title=None, labelFontSize=12)
+    )
+
+    if present_mapping:
+        color_enc = alt.Color(
+            "CategoryPrefix:N",
+            scale=alt.Scale(
+                domain=list(present_mapping.keys()),
+                range=list(present_mapping.values()),
+            ),
+        legend=alt.Legend(
+            title=str(title),
+            titleColor="black"
+        )        
+    )
 
     pie_chart = (
         alt.Chart(df)
         .mark_arc(innerRadius=20, outerRadius=45)
         .encode(
             theta=alt.Theta("Values:Q", stack=True),
-            color=alt.Color(
-                "Category:N",
-                scale=alt.Scale(
-                    domain=list(filtered_color_mapping.keys()),
-                    range=list(filtered_color_mapping.values()),
-                ),
-                legend=alt.Legend(title=None, labelFontSize=12),
-            ),
+            color=color_enc,
             tooltip=[
                 alt.Tooltip("Category:N", title="Category"),
                 alt.Tooltip("Values:Q", title="Values", format=",.2f"),
@@ -173,24 +176,25 @@ def create_pie_chart(df):
 
     return pie_chart + text_labels
 
+def comparison_pie_chart(pie_data, selected_year):
+    
 
-def comparison_pie_chart(pie_data):
     if pie_data:
         df = pd.DataFrame(
             [
-                {"Category": "JPCC", "Values": pie_data["JPCC"]},
-                {"Category": "Others", "Values": pie_data["Others"]},
+                {"Category": f"JPCC_{selected_year}", "Values": pie_data[f"JPCC_{selected_year}"]},
+                {"Category": f"Others_{selected_year}", "Values": pie_data[f"Others_{selected_year}"]},
             ]
         )
         df_ly = pd.DataFrame(
             [
-                {"Category": "JPCC_LY", "Values": pie_data["JPCC_LY"]},
-                {"Category": "Others_LY", "Values": pie_data["Others_LY"]},
+                {"Category": f"JPCC_{selected_year-1}", "Values": pie_data[f"JPCC_{selected_year-1}"]},
+                {"Category": f"Others_{selected_year-1}", "Values": pie_data[f"Others_{selected_year-1}"]},
             ]
         )
         
-        st.altair_chart(create_pie_chart(df), use_container_width=True)
-        st.altair_chart(create_pie_chart(df_ly), use_container_width=True)
+        st.altair_chart(create_pie_chart(df, selected_year), use_container_width=True)
+        st.altair_chart(create_pie_chart(df_ly, selected_year-1), use_container_width=True)
 
 
 def cost_pie_chart(pie_data):
@@ -409,7 +413,7 @@ def display_monthly(data, selected_month, selected_year):
         with col3:
             with st.container(border=True, height=355):
                 st.markdown(f"<h5>JPCC vs Others</h5>", unsafe_allow_html=True)
-                comparison_pie_chart(jpcc_vs_others)
+                comparison_pie_chart(jpcc_vs_others, selected_year)
 
         with col4:
             with st.container(border=True, height=355):
@@ -537,7 +541,7 @@ def display_ytd(data, selected_month, selected_year):
         with col3:
             with st.container(border=True, height=355):
                 st.markdown(f"<h5>JPCC vs Others</h5>", unsafe_allow_html=True)
-                comparison_pie_chart(ytd_jpcc_vs)
+                comparison_pie_chart(ytd_jpcc_vs, selected_year)
 
         with col4:
             with st.container(border=True, height=355):
@@ -623,7 +627,12 @@ def display_cash_flow_table(data, selected_year):
         headers = ["ID", "Category", "Actual/Target"] + all_months + ["YTD"]
         rows = ""
         row_id = 1
-        for category in cash_flow[company]:
+        category_order = list(account_categories.keys()) 
+        sorted_categories = sorted(
+            cash_flow[company].keys(),
+            key=lambda x: category_order.index(x) if x in category_order else float("inf")
+        )
+        for category in sorted_categories:
             if category == "NET PROFIT MARGIN (%)":
                 continue
             actual_values = "".join(
@@ -888,13 +897,20 @@ def prepare_data(data_store, companies, selected_year):
                         for col in df.columns.astype(str)
                         if "nan" not in col.lower()
                     ]
+
                     df = df[["nan_2", "nan_3"] + month_cols]
                     df["nan_2"] = df["nan_2"].fillna(df["nan_3"])
-                    df.drop(columns=["nan_3"], errors="ignore", inplace=True)
-                    df = df[df["nan_2"].isin(predefined_budget.keys())][
-                        ["nan_2"] + month_cols
-                    ]
-                    df["nan_2"] = df["nan_2"].map(predefined_budget)
+                    df.drop(columns=["nan_3"], inplace=True)
+
+
+                    def clean_string(s):
+                        return str(s).strip().upper()
+
+                    predefined_budget_cleaned = {clean_string(k): v for k, v in predefined_budget.items()}
+                    df["nan_2"] = df["nan_2"].apply(clean_string)
+                    df = df[df["nan_2"].isin(predefined_budget_cleaned.keys())]
+                    df["nan_2"] = df["nan_2"].map(predefined_budget_cleaned)
+
 
                     for month in df.columns[1:]:
                         key = f"{company}_{to_camel_case(month.split()[0])}_{year}"
@@ -941,12 +957,12 @@ def prepare_data(data_store, companies, selected_year):
             result = []
 
             for _, row in current_year_data.iterrows():
-                result.append({"Category": "JPCC", "Value": row["jpcc"]})
-                result.append({"Category": "Others", "Value": row["others"]})
+                result.append({"Category": f"JPCC_{selected_year}", "Value": row["jpcc"]})
+                result.append({"Category": f"Others_{selected_year}", "Value": row["others"]})
 
             for _, row in last_year_data.iterrows():
-                result.append({"Category": "JPCC_LY", "Value": row["jpcc"]})
-                result.append({"Category": "Others_LY", "Value": row["others"]})
+                result.append({"Category": f"JPCC_{selected_year-1}", "Value": row["jpcc"]})
+                result.append({"Category": f"Others_{selected_year-1}", "Value": row["others"]})
 
             results[key]["jpcc_vs_others"] = result
 
@@ -957,6 +973,8 @@ def main():
 
     if not helper.verify_user():
         st.switch_page("Login.py")
+        return
+
 
     data_store = helper.fetch_all_data()
     available_companies, available_years = helper.get_available_companies_and_years(

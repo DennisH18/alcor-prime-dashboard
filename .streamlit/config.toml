@@ -6,3 +6,5 @@ primaryColor="0055b3"
 enableXsrfProtection = false  # (Optional) Disable XSRF protection
 enableCORS = false  # (Optional) Disable CORS
 
+[client]
+showSidebarNavigation = false

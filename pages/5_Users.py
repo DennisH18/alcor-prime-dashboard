@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+
 import services.styles as styles
 import services.supabaseService as supabaseService
 import services.helper as helper
@@ -8,6 +9,11 @@ import services.helper as helper
 styles.style_page()
 
 def main():
+
+    if not helper.verify_user():
+        st.switch_page("Login.py")
+        return
+
     df = pd.DataFrame(supabaseService.fetch_data("Users"))
     data_store = helper.fetch_all_data()
     companies, _ = helper.get_available_companies_and_years(data_store)
@@ -25,7 +31,7 @@ def main():
         "email": st.column_config.TextColumn("Email"),
         "name": st.column_config.TextColumn("Name"),
         "role": st.column_config.TextColumn("Role"),
-        "company": st.column_config.SelectboxColumn("Company", options=companies),
+        "company": st.column_config.SelectboxColumn("Company", options=companies + ["ALL"]),
     }
 
     edited_df = st.data_editor(
@@ -35,9 +41,6 @@ def main():
         use_container_width=True, 
         hide_index=True
     )
-
-    edited_df
-    original_df
 
     if "id" in df.columns and len(edited_df) == len(original_df):
         edited_df["id"] = original_df["id"]

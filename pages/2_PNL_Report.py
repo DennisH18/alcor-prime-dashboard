@@ -34,9 +34,11 @@ def prepare_pnl_data(data_store, companies, selected_year):
                 continue
 
             for file_name, df in data_store[company][year].items():
-                
+
                 if df is None or df.empty:
-                    st.warning(f"File '{file_name}' for '{company}' in year '{year}' is empty or missing.")
+                    st.warning(
+                        f"File '{file_name}' for '{company}' in year '{year}' is empty or missing."
+                    )
                     continue
 
                 if "Management Report" in file_name:
@@ -261,15 +263,20 @@ def transform_data(data, selected_year, selected_month):
         )
 
         subcategory_order = {
-            sub: (i, j) 
-            for i, (main_cat, subcats) in enumerate(account_categories.items()) if subcats is not None
-            for j, sub in enumerate(subcats) if sub is not None
+            sub: (i, j)
+            for i, (main_cat, subcats) in enumerate(account_categories.items())
+            if subcats is not None
+            for j, sub in enumerate(subcats)
+            if sub is not None
         }
 
-        df_final["Subcategory Order"] = df_final["Subcategory"].map(lambda x: subcategory_order.get(x, (999, 999)))
-        df_final = df_final.sort_values(by=["Main Category", "Subcategory Order"], ascending=[True, True])
+        df_final["Subcategory Order"] = df_final["Subcategory"].map(
+            lambda x: subcategory_order.get(x, (999, 999))
+        )
+        df_final = df_final.sort_values(
+            by=["Main Category", "Subcategory Order"], ascending=[True, True]
+        )
         df_final = df_final.drop(columns=["Subcategory Order"])
-
 
         new_columns = {}
 
@@ -345,18 +352,18 @@ def format_value(value, is_percentage=False):
         if isinstance(value, str):
             value = value.replace(",", "").replace("(", "-").replace(")", "")
             value = float(value) if value.replace(".", "", 1).isdigit() else value
-        
+
         if isinstance(value, (int, float)):
             if value == 0:
-                return "-"  
-            
+                return "-"
+
             if is_percentage:
                 return f"({abs(value):.1f}%)" if value < 0 else f"{value:.1f}%"
             return f"({abs(int(value)):,})" if value < 0 else f"{int(value):,}"
-        
+
     except ValueError:
-        pass 
-    
+        pass
+
     return value
 
 
@@ -372,23 +379,26 @@ def display_pnl(df_final):
         if col in month_columns:
             updated_headers.append(f"{col} %")
 
-
     colors = ["#FFDDC1", "#FFABAB", "#D5AAFF", "#85E3FF", "#B9FBC0", "#FF9CEE"]
 
     header_html = "<tr>"
     for i, col in enumerate(updated_headers):
 
-        if i in [0,1]:  
-            header_html += f"<th class='header-row sticky{i+1} gray' style='z-index: 100;'></th>"
-        elif i in [2,3]:
+        if i in [0, 1]:
+            header_html += (
+                f"<th class='header-row sticky{i+1} gray' style='z-index: 100;'></th>"
+            )
+        elif i in [2, 3]:
             header_html += f"<th class='header-row sticky{i+1} gray' style='z-index: 100;'>{col}</th>"
 
         else:
-            group_index = (i - 4) // 10 
-            color = colors[group_index % len(colors)] 
+            group_index = (i - 4) // 10
+            color = colors[group_index % len(colors)]
 
             if "%" in col:
-                header_html += f"<th class='header-row' style='background-color: {color};'>%</th>"
+                header_html += (
+                    f"<th class='header-row' style='background-color: {color};'>%</th>"
+                )
             elif "Variance" in col:
                 header_html += f"<th class='header-row' style='background-color: {color};'>Variance</th>"
             else:
@@ -399,7 +409,7 @@ def display_pnl(df_final):
     # Generating Content
     html_rows = ""
     for main_cat, main_df in df_final.groupby("Main Category", sort=False):
-        
+
         main_totals = {col: main_df[col].sum() for col in month_columns}
 
         if main_cat in ["GROSS PROFIT", "TOTAL EXPENSES", "NET PROFIT"]:
@@ -422,7 +432,10 @@ def display_pnl(df_final):
             sub_totals = {col: sub_df[col].sum() for col in month_columns}
 
             for _, row in sub_df.iterrows():
-                row_cells = ["<td class='sticky1 white'></td>", "<td class='sticky2 white'></td>"]
+                row_cells = [
+                    "<td class='sticky1 white'></td>",
+                    "<td class='sticky2 white'></td>",
+                ]
 
                 for col in headers[2:]:
 
@@ -435,7 +448,7 @@ def display_pnl(df_final):
 
                     else:
                         if sub_cat == "Other Expenses":
-                            value = -value 
+                            value = -value
                         row_cells.append(f"<td>{format_value(value)}</td>")
 
                     if col in month_columns:
@@ -444,12 +457,20 @@ def display_pnl(df_final):
                 html_rows += f"<tr class='code-row'>{''.join(row_cells)}</tr>"
 
             # Subcategory Total Row
-            total_row = [f"<td class='sticky1'></td><td colspan=3 class='sticky2'><b>Total {sub_cat}</b></td>"]
+            total_row = [
+                f"<td class='sticky1'></td><td colspan=3 class='sticky2'><b>Total {sub_cat}</b></td>"
+            ]
             for col in headers[4:]:
                 if col in month_columns:
                     total_row.append(f"<td><b>{format_value(sub_totals[col])}</b></td>")
-                    percentage = (sub_totals[col] / main_totals[col] * 100) if main_totals[col] != 0 else 0
-                    total_row.append(f"<td><b>{format_value(percentage, is_percentage=True)}</b></td>")
+                    percentage = (
+                        (sub_totals[col] / main_totals[col] * 100)
+                        if main_totals[col] != 0
+                        else 0
+                    )
+                    total_row.append(
+                        f"<td><b>{format_value(percentage, is_percentage=True)}</b></td>"
+                    )
                 else:
                     total_row.append("<td><b></b></td>")
 
@@ -462,9 +483,7 @@ def display_pnl(df_final):
             if col in month_columns:
                 total_row.append("<td><b>100%</b></td>")
 
-
         html_rows += f"<tr class='main-total'>{''.join(total_row)}</tr>"
-
 
     html_table = f"""
     {styles.pnl_table_style}
@@ -474,13 +493,16 @@ def display_pnl(df_final):
     </table>
     """
 
-    st.components.v1.html(html_table, height=1000, scrolling=True)
+    st.components.v1.html(html_table, height=800, scrolling=True)
 
     return html_table
 
 
-
 def main():
+
+    if not helper.verify_user():
+        st.switch_page("Login.py")
+        return
 
     data_store = helper.fetch_all_data()
     available_companies, available_years = helper.get_available_companies_and_years(

@@ -1,13 +1,19 @@
 import streamlit as st
 import pandas as pd
+
 import services.styles as styles
 import services.supabaseService as supabaseService
-
-
+import services.helper as helper
 
 styles.style_page()
 
 def main():
+
+    if not helper.verify_user():
+        st.switch_page("Login.py")
+        return
+
+
     df = pd.DataFrame(supabaseService.fetch_data("COA"))
 
     st.markdown("<h3>COA</h3>", unsafe_allow_html=True)

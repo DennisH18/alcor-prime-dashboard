@@ -4,6 +4,8 @@ import calendar
 import dropbox
 from io import BytesIO
 from collections import OrderedDict
+import unicodedata
+import re
 
 import services.dropboxAuth as dropboxAuth
 from services.supabaseService import supabase_client
@@ -80,15 +82,15 @@ def fetch_all_data():
 def get_available_months(data, companies, selected_year):
     months = set()
 
-    for key in data.keys(): 
+    for key, value in data.items():
         parts = key.split("_")
         if len(parts) == 3:
             company, month, year = parts
             if company in companies and year == str(selected_year):
-                months.add(month)
+                if all(value.get(k) for k in value):
+                    months.add(month)
 
     return sorted(months, key=lambda m: list(calendar.month_abbr).index(m)) if months else []
-
 
 @st.cache_data
 def get_available_companies_and_years(data_store):
@@ -103,6 +105,7 @@ def transform_to_category_codes(pnl_account_categories_dict):
         "COGS",
         "HUMAN RESOURCES",
         "OPERATIONAL EXPENSES",
+        "DEPRECIATION & MAINTENANCE",
         "OTHER INCOME / EXPENSES"
     ]
 
@@ -254,19 +257,57 @@ def get_all_coa():
     return codes
 
 def verify_user():
+    if "access_token" in st.session_state and st.session_state["access_token"]:
+        token = st.session_state["access_token"]
+    else:
+        token = cookie_manager.get("access_token")
+        if token:
+            st.session_state["access_token"] = token 
 
-    token = cookie_manager.get("access_token")
     if token:
         try:
-            user = supabase_client.auth.get_user(token)
-            if user:
+            response = supabase_client.auth.get_user(token)
+            if response and response.user:
+                st.session_state["authenticated"] = True
+                st.session_state["user_id"] = response.user.id
+
+                st.sidebar.write(
+                    f"**{response.user.user_metadata['name']}**"
+                )
+                st.sidebar.write("")
+
+                users_data = supabaseService.fetch_data("Users")
+
+                #implement Role based access
+    
+                st.sidebar.page_link("pages/1_Dashboard.py", label="Dashboard")
+                st.sidebar.page_link("pages/2_PNL_Report.py", label="PNL Report")
+                st.sidebar.page_link("pages/3_COA.py", label="COA")
+                st.sidebar.page_link("pages/4_JPCC_vs_Others.py", label="JPCC vs Others")
+                st.sidebar.page_link("pages/5_Users.py", label="Users")
+
+                # st.sidebar.write("")
+                # st.sidebar.page_link("Logout", key="logout")
+
                 return True
+            
             else:
-                st.warning("Invalid token or user not found.")
+                st.error(f"You are not logged in to access this page. Please log in.")
                 return False
         except Exception as e:
             st.error(f"Error verifying user: {e}")
             return False 
-    else:
-        st.warning("No access token found.")
-        return None
+        
+    return False
+
+
+
+
+def clean_string(val):
+    if not isinstance(val, str):
+        return ""
+    val = unicodedata.normalize("NFKD", val)  # normalize unicode
+    val = val.encode("ascii", "ignore").decode()  # strip weird unicode
+    val = re.sub(r"\s+", " ", val)  # replace multiple spaces with one
+    val = val.strip().upper()  # trim + uppercase
+    return val
