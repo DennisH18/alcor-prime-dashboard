@@ -59,7 +59,6 @@ def main():
                         }
                     })
                     st.markdown(f"""
-                    <meta http-equiv="refresh" content="0;url={response.url}" />
                     <script>window.location.replace("{response.url}");</script>
                     """, unsafe_allow_html=True)
 
