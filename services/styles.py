@@ -1,6 +1,7 @@
 import streamlit as st
 
 def style_page():
+    st.logo("logo.png")
 
     st.markdown(
         """

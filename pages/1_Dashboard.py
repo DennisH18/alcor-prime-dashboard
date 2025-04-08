@@ -1,4 +1,6 @@
 import streamlit as st
+st.set_page_config(layout="wide", page_icon="logo.png")
+
 import pandas as pd
 import datetime as dt
 import altair as alt
@@ -8,8 +10,6 @@ import services.helper as helper
 import services.styles as styles
 import services.supabaseService as supabaseService
 
-st.set_page_config(layout="wide", page_icon="logo.png")
-st.logo("logo.png")
 
 styles.style_page()
 
