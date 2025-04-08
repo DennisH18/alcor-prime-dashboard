@@ -60,6 +60,8 @@ def main():
 
         fragment = get_fragment()
 
+        fragment
+
         if fragment:
             if "error=" in fragment:
                 params = dict(x.split("=") for x in fragment.split("&") if "=" in x)
