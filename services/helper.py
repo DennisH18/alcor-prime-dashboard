@@ -292,7 +292,6 @@ def verify_user():
             
         except Exception as e:
             st.error(f"Error verifying user: {e}")
-            st.switch_page("Login.py")
             return False 
         
     return False
