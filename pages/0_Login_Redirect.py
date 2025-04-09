@@ -14,7 +14,7 @@ code = st.query_params.get("code")
 if code:
     try:
         # Exchange the code for a session (access_token, etc.)
-        session = supabase_client.auth.exchange_code_for_session(code)
+        session = supabase_client.auth.exchange_code_for_session({"code": code})
         access_token = session.session.access_token
         user = session.user
 
