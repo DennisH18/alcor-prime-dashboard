@@ -27,12 +27,12 @@ def main():
             )
 
             response = supabase_client.auth.sign_in_with_oauth(
-                {"provider": "google", "options": {"redirect_to": REDIRECT_URI}}
+                {"provider": "google", "options": {"redirect_to": REDIRECT_URI},"flow_type": "implicit"
+}
             )
 
             login_url = response.url
 
-            # Use markdown and JavaScript to force a redirect in the full window
             st.markdown(f"""
                 <div style="display: flex; justify-content: center; margin-top: 20px;">
                     <a href="{login_url}" id="login-btn" style="text-decoration: none;">
@@ -53,7 +53,7 @@ def main():
                     </a>
                 </div>
             """, unsafe_allow_html=True)
-            
+
     url = st_javascript("await fetch('').then(() => window.parent.location.href)")
 
     if url and "#access_token=" in url:
