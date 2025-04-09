@@ -11,6 +11,7 @@ cookie_manager = CookieController()
 
 REDIRECT_URI = st.secrets["google"]["REDIRECT_URI"]
 
+
 def main():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
@@ -27,13 +28,16 @@ def main():
             )
 
             response = supabase_client.auth.sign_in_with_oauth(
-                {"provider": "google", "options": {"redirect_to": REDIRECT_URI},"flow_type": "implicit"
-}
+                {
+                    "provider": "google",
+                    "options": {"redirect_to": REDIRECT_URI, "flow_type": "implicit"},
+                }
             )
 
             login_url = response.url
 
-            st.markdown(f"""
+            st.markdown(
+                f"""
                 <div style="display: flex; justify-content: center; margin-top: 20px;">
                     <a href="{login_url}" id="login-btn" style="text-decoration: none;">
                         <button style="
@@ -52,7 +56,9 @@ def main():
                         </button>
                     </a>
                 </div>
-            """, unsafe_allow_html=True)
+            """,
+                unsafe_allow_html=True,
+            )
 
     url = st_javascript("await fetch('').then(() => window.parent.location.href)")
     url
