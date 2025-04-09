@@ -1,92 +1,101 @@
 import streamlit as st
-import base64
-import cv2
 import urllib.parse
+import requests
+import os
 
-from streamlit_javascript import st_javascript
-from streamlit_url_fragment import get_fragment
-from streamlit_cookies_controller import CookieController
+# Supabase details
+SUPABASE_URL = st.secrets["supabase"]["SUPABASE_URL"]
+SUPABASE_KEY = st.secrets["supabase"]["SUPABASE_KEY"]
+REDIRECT_URI = st.secrets["google"]["REDIRECT_URI"]  # should match what’s set in Supabase dashboard
 
-from services.supabaseService import supabase_client
-import services.styles as styles
+# Step 1: Generate the OAuth login URL manually
+def get_oauth_login_url():
+    provider = "google"
+    return (
+        f"{SUPABASE_URL}/auth/v1/authorize"
+        f"?provider={provider}"
+        f"&redirect_to={urllib.parse.quote(REDIRECT_URI)}"
+        f"&response_type=code"
+    )
 
-st.set_page_config(layout="wide", page_icon="logo.png")
-cookie_manager = CookieController()
-REDIRECT_URI = st.secrets["google"]["REDIRECT_URI"]
+# Step 2: Parse URL params to get authorization code
+def get_auth_code():
+    query_params = st.experimental_get_query_params()
+    return query_params.get("code", [None])[0]
 
+# Step 3: Exchange code for access token
+def exchange_code_for_token(code):
+    token_url = f"{SUPABASE_URL}/auth/v1/token"
 
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "apikey": SUPABASE_KEY,
+    }
+
+    data = {
+        "grant_type": "authorization_code",
+        "code": code,
+        "redirect_uri": REDIRECT_URI,
+    }
+
+    response = requests.post(token_url, headers=headers, data=data)
+
+    if response.status_code == 200:
+        return response.json()
+    else:
+        st.error(f"Failed to exchange code for token: {response.text}")
+        return None
+
+# UI Logic
 def main():
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
+    st.title("Alcor Prime Login")
 
-        with st.container(border=True):
+    code = get_auth_code()
 
-            st.markdown(
-                f"""
-                <div style="text-align: center; margin-top: 40px; margin-bottom: 40px">
-                    <p style="font-size: 25px; font-weight: 600; margin-bottom:10px">Alcor Prime Dashboard</p>
-                    <p style="margin-bottom:40px"> Sign in with your company's Google Account </p>  
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+    if code:
+        st.info("Authorization code received. Exchanging for token...")
 
-            response = supabase_client.auth.sign_in_with_oauth(
-                {"provider": "google", "options": {"redirect_to": REDIRECT_URI}}
-            )
+        tokens = exchange_code_for_token(code)
 
-            st.components.v1.html(
-                f"""
-                <div style="display: flex; justify-content: center; align-items: center; width: 100%; text-align: center;">
-                    <a href="{response.url}" target="_blank" style="text-decoration: none;">
-                        <button style="
-                            font-size: 16px; 
-                            padding: 15px; 
-                            border-radius: 30px; 
-                            display: flex; 
-                            border: 2px solid gray;
-                            align-items: center; 
-                            justify-content: center;
-                            cursor: pointer;
-                            background-color: white;
-                        ">
-                            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
-                                width="20" style="margin-right: 10px;" />
-                            Sign in with Google
-                        </button>
-                    </a>
-                </div>
-            """
-            )
+        if tokens:
+            access_token = tokens["access_token"]
+            refresh_token = tokens.get("refresh_token")
+            user = tokens["user"]
 
-        url = st_javascript("await fetch('').then(r => window.parent.location.href)")
-        st.write(url)
-        if url and "#access_token=" in url:
-            parsed = urllib.parse.parse_qs(urllib.parse.urlparse(url).fragment)
-            access_token = parsed.get("access_token", [None])[0]
+            st.success("Login successful!")
+            st.write("Access Token:", access_token)
+            st.write("User Info:", user)
 
-            if access_token:
-                try:
-                    user = supabase_client.auth.get_user(access_token)
-                    user_id = user.user.id
+            # Store in session state
+            st.session_state["access_token"] = access_token
+            st.session_state["user"] = user
 
-                    cookie_manager.set("access_token", access_token, max_age=3600)
-                    st.session_state["access_token"] = access_token
-                    st.session_state["authenticated"] = True
-                    st.session_state["user_id"] = user_id
+            # Redirect to app/dashboard
+            st.success("Redirecting to dashboard...")
+            st.switch_page("pages/1_Dashboard.py")
+        return
 
-                    st.success("Login successful. Redirecting to dashboard...")
-                    st.switch_page("pages/1_Dashboard.py")
+    # No code yet → show login button
+    oauth_url = get_oauth_login_url()
 
-                except Exception as e:
-                    st.error("Login failed. Invalid token. Please try again.")
-                    st.exception(e)
-
-            else:
-                st.error("Login failed. No access token found.")
-        else:
-            st.info("Waiting for login redirect with token...")
-
+    st.markdown(f"""
+        <div style="text-align:center;">
+            <a href="{oauth_url}">
+                <button style="
+                    padding: 10px 20px;
+                    font-size: 16px;
+                    background-color: white;
+                    border: 2px solid #ccc;
+                    border-radius: 25px;
+                    cursor: pointer;
+                ">
+                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
+                         width="20" style="margin-right: 10px; vertical-align: middle;" />
+                    Sign in with Google
+                </button>
+            </a>
+        </div>
+    """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
