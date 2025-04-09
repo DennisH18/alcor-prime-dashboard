@@ -55,6 +55,7 @@ def main():
             """, unsafe_allow_html=True)
 
     url = st_javascript("await fetch('').then(() => window.parent.location.href)")
+    url
 
     if url and "#access_token=" in url:
         parsed = urllib.parse.parse_qs(urllib.parse.urlparse(url).fragment)
