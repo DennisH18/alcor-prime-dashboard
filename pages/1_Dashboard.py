@@ -978,8 +978,9 @@ def prepare_data(data_store, companies, selected_year):
 
 def main():
 
-    if not st.session_state.get("authenticated", False):
+    if not helper.verify_user():
         st.switch_page("Login.py")
+        return
 
 
     data_store = helper.fetch_all_data()

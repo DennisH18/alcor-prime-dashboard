@@ -299,14 +299,3 @@ def verify_user():
         
     return False
 
-
-
-
-def clean_string(val):
-    if not isinstance(val, str):
-        return ""
-    val = unicodedata.normalize("NFKD", val)  # normalize unicode
-    val = val.encode("ascii", "ignore").decode()  # strip weird unicode
-    val = re.sub(r"\s+", " ", val)  # replace multiple spaces with one
-    val = val.strip().upper()  # trim + uppercase
-    return val
