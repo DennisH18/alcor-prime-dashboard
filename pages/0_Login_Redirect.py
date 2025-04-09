@@ -14,8 +14,10 @@ if not code:
 
 with st.spinner("Exchanging code for session..."):
     try:
-        session = supabase_client.auth.exchange_code_for_session(code)
-
+        session = supabase_client.auth.exchange_code_for_session({
+            "code": code,
+            # optionally: "code_verifier": "your-verifier"
+        })
         access_token = session.access_token
         user = supabase_client.auth.get_user(access_token)
         user_id = user.user.id
