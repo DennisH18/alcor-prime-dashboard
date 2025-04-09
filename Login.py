@@ -1,7 +1,6 @@
 import streamlit as st
 import requests
 
-# Set your secrets in .streamlit/secrets.toml
 SUPABASE_URL = st.secrets["supabase"]["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["supabase"]["SUPABASE_KEY"]
 REDIRECT_URI = st.secrets["google"]["REDIRECT_URI"]
@@ -9,8 +8,11 @@ REDIRECT_URI = st.secrets["google"]["REDIRECT_URI"]
 st.set_page_config(layout="wide", page_title="Alcor Prime Login", page_icon="🔐")
 
 def get_auth_code():
-    # Use new Streamlit API
-    return st.query_params.get("code")
+    fragment = st_javascript("window.location.hash")
+    if fragment and "code=" in fragment:
+        parsed = urllib.parse.parse_qs(fragment.lstrip("#"))
+        return parsed.get("code", [None])[0]
+    return None
 
 def exchange_code_for_token(code):
     token_url = f"{SUPABASE_URL}/auth/v1/token"
@@ -29,13 +31,13 @@ def exchange_code_for_token(code):
     if response.status_code == 200:
         return response.json()
     else:
-        st.error(f"❌ Failed to exchange code for token: {response.text}")
+        st.error(f"Failed to exchange code for token: {response.text}")
         return None
 
 def main():
     st.markdown("""
         <div style="text-align: center; margin-top: 40px; margin-bottom: 20px">
-            <h2>🔐 Alcor Prime Dashboard Login</h2>
+            <h2>Alcor Prime Dashboard Login</h2>
             <p>Sign in with your company's Google account</p>
         </div>
     """, unsafe_allow_html=True)
@@ -58,7 +60,6 @@ def main():
             st.success("Redirecting to dashboard...")
             st.switch_page("pages/1_Dashboard.py")
     else:
-        # No auth code yet: show login button
         login_url = f"{SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to={REDIRECT_URI}"
 
         st.markdown(
