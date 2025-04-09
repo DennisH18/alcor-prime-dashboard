@@ -14,7 +14,8 @@ response = supabase_client.auth.sign_in_with_oauth(
     {
         "provider": "google",
         "options": {
-            "redirect_to": REDIRECT_URI
+            "redirect_to": REDIRECT_URI,
+            "flow_type": "implicit"  # this is key!
         }
     }
 )
