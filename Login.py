@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 from streamlit_javascript import st_javascript
 import urllib.parse
+from streamlit_url_fragment import get_fragment
 
 SUPABASE_URL = st.secrets["supabase"]["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["supabase"]["SUPABASE_KEY"]
@@ -10,10 +11,13 @@ REDIRECT_URI = st.secrets["google"]["REDIRECT_URI"]
 st.set_page_config(layout="wide", page_title="Alcor Prime Login")
 
 def get_auth_code():
+    return st.query_params.get("code")
+
+def get_access_token_from_fragment():
     fragment = st_javascript("window.location.hash")
-    if fragment and "code=" in fragment:
+    if fragment and "access_token=" in fragment:
         parsed = urllib.parse.parse_qs(fragment.lstrip("#"))
-        return parsed.get("code", [None])[0]
+        return parsed.get("access_token", [None])[0]
     return None
 
 def exchange_code_for_token(code):
@@ -45,8 +49,12 @@ def main():
     """, unsafe_allow_html=True)
 
     code = get_auth_code()
+    fragment = get_fragment()
 
-    if code:
+    if fragment and "#access_token=" in fragment:
+        parsed = urllib.parse.parse_qs(fragment)
+        access_token = parsed.get("#access_token", [None])[0]
+        access_token
         st.info("Authorization code received. Exchanging for token...")
         token_data = exchange_code_for_token(code)
 
