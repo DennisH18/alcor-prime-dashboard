@@ -58,12 +58,10 @@ def main():
         if  "#access_token=" in fragment:
             parsed = urllib.parse.parse_qs(fragment)
             access_token = parsed.get("#access_token", [None])[0]
-            access_token
 
-            st.info("Authorization code received. Exchanging for token...")
             st.session_state["access_token"] = access_token
-
             st.success("Redirecting to dashboard...")
+            
             st.switch_page("pages/1_Dashboard.py")
 
         elif "error=" in fragment:
