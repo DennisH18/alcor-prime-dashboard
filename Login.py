@@ -17,6 +17,18 @@ def main():
     with col2:
         with st.container(border=True):
 
+
+            st.markdown("""
+            <script>
+                const hash = window.location.hash;
+                if (hash && hash.includes("access_token")) {
+                    const params = new URLSearchParams(hash.slice(1));
+                    const query = params.toString();
+                    const cleanUrl = window.location.origin + window.location.pathname + "?" + query;
+                    window.location.replace(cleanUrl);  // Forces reload with ?access_token=...
+                }
+            </script>
+            """, unsafe_allow_html=True)
             st.markdown(
                 """
                 <div style="text-align: center; margin-top: 40px; margin-bottom: 40px">
