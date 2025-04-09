@@ -259,7 +259,6 @@ def verify_user():
     if "access_token" in st.session_state and st.session_state["access_token"]:
         token = st.session_state["access_token"]
 
-    if token:
         try:
             response = supabase_client.auth.get_user(token)
             if response and response.user:
