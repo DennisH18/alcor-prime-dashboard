@@ -3,10 +3,12 @@ import requests
 from streamlit_javascript import st_javascript
 import urllib.parse
 from streamlit_url_fragment import get_fragment
+from streamlit_cookies_controller import CookieController
 
 SUPABASE_URL = st.secrets["supabase"]["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["supabase"]["SUPABASE_KEY"]
 REDIRECT_URI = st.secrets["google"]["REDIRECT_URI"]
+cookie_manager = CookieController()
 
 st.set_page_config(layout="wide", page_title="Alcor Prime Login")
 
@@ -56,19 +58,12 @@ def main():
         access_token = parsed.get("#access_token", [None])[0]
         access_token
         st.info("Authorization code received. Exchanging for token...")
-        token_data = exchange_code_for_token(code)
 
-        if token_data:
-            st.success("✅ Login successful!")
-            st.session_state["access_token"] = token_data["access_token"]
-            st.session_state["refresh_token"] = token_data.get("refresh_token")
-            st.session_state["user"] = token_data.get("user")
+        st.session_state["access_token"] = access_token
+        cookie_manager.set("access_token", access_token, max_age=3600)
 
-            st.write("### User Info:")
-            st.json(token_data.get("user"))
-
-            st.success("Redirecting to dashboard...")
-            st.switch_page("pages/1_Dashboard.py")
+        st.success("Redirecting to dashboard...")
+        st.switch_page("pages/1_Dashboard.py")
     else:
         login_url = f"{SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to={REDIRECT_URI}"
 
