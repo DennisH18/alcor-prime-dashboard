@@ -1,18 +1,17 @@
 import streamlit as st
-
-st.set_page_config(layout="wide", page_icon="logo.png")
-
 import base64
 import cv2
-import services.styles as styles
+import urllib.parse
 
+from streamlit_javascript import st_javascript
 from streamlit_url_fragment import get_fragment
 from streamlit_cookies_controller import CookieController
+
 from services.supabaseService import supabase_client
+import services.styles as styles
 
-
+st.set_page_config(layout="wide", page_icon="logo.png")
 cookie_manager = CookieController()
-
 REDIRECT_URI = st.secrets["google"]["REDIRECT_URI"]
 
 
@@ -60,41 +59,33 @@ def main():
             """
             )
 
-        fragment = get_fragment()
+        url = st_javascript("await fetch('').then(r => window.parent.location.href)")
+        st.write(url)
+        if url and "#access_token=" in url:
+            parsed = urllib.parse.parse_qs(urllib.parse.urlparse(url).fragment)
+            access_token = parsed.get("access_token", [None])[0]
 
-        if fragment:
-            if "error=" in fragment:
-                params = dict(x.split("=") for x in fragment.split("&") if "=" in x)
-                error_desc = params.get("error_description", "Unknown error occurred.")
-                st.error(f"Login failed: {error_desc.replace('+', ' ')}")
-
-            elif "#access_token" in fragment:
+            if access_token:
                 try:
-                    params = dict(x.split("=") for x in fragment.split("&") if "=" in x)
-                    access_token = params.get("#access_token")
+                    user = supabase_client.auth.get_user(access_token)
+                    user_id = user.user.id
 
-                    if access_token:
-                        try:
-                            user = supabase_client.auth.get_user(access_token)
-                            user_id = user.user.id
+                    cookie_manager.set("access_token", access_token, max_age=3600)
+                    st.session_state["access_token"] = access_token
+                    st.session_state["authenticated"] = True
+                    st.session_state["user_id"] = user_id
 
-                            cookie_manager.set(
-                                "access_token", access_token, max_age=3600
-                            )
-                            st.session_state["access_token"] = access_token
-                            st.session_state["authenticated"] = True
-                            st.session_state["user_id"] = user_id
+                    st.success("Login successful. Redirecting to dashboard...")
+                    st.switch_page("pages/1_Dashboard.py")
 
-                            print("Sucess Log in")
+                except Exception as e:
+                    st.error("Login failed. Invalid token. Please try again.")
+                    st.exception(e)
 
-                            st.switch_page("pages/1_Dashboard.py")
-
-                        except Exception:
-                            st.error("Login failed. Invalid token. Please try again.")
-                    else:
-                        st.error("Login failed. No access token found.")
-                except Exception:
-                    st.error("Unexpected error during login.")
+            else:
+                st.error("Login failed. No access token found.")
+        else:
+            st.info("Waiting for login redirect with token...")
 
 
 if __name__ == "__main__":
