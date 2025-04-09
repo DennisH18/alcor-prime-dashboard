@@ -1,41 +1,36 @@
 import streamlit as st
-import urllib.parse
 from streamlit_cookies_controller import CookieController
 from services.supabaseService import supabase_client
-from streamlit_javascript import st_javascript
 
 cookie_manager = CookieController()
 
 st.set_page_config(page_title="Logging in...", layout="centered")
 
-st.title("🔄 Redirecting...")
+st.title("🔄 Logging you in...")
 
-# Use JS to get full URL with fragment
-url = st_javascript("await fetch('').then(r => window.parent.location.href)")
+# Get the ?code=... from the URL query params
+code = st.query_params.get("code")
 
-if url and "#access_token=" in url:
-    parsed = urllib.parse.parse_qs(urllib.parse.urlparse(url).fragment)
-    access_token = parsed.get("access_token", [None])[0]
+if code:
+    try:
+        # Exchange the code for a session (access_token, etc.)
+        session = supabase_client.auth.exchange_code_for_session(code)
+        access_token = session.session.access_token
+        user = session.user
 
-    if access_token:
-        try:
-            user = supabase_client.auth.get_user(access_token)
-            user_id = user.user.id
-
+        if access_token and user:
             cookie_manager.set("access_token", access_token, max_age=3600)
             st.session_state["access_token"] = access_token
             st.session_state["authenticated"] = True
-            st.session_state["user_id"] = user_id
+            st.session_state["user_id"] = user.id
 
             st.success("✅ Logged in successfully!")
-
             st.switch_page("pages/1_Dashboard.py")
+        else:
+            st.error("❌ Login failed: Invalid session.")
 
-        except Exception as e:
-            st.error("❌ Login failed. Invalid token.")
-            st.exception(e)
-    else:
-        st.error("❌ Login failed: No access token found.")
+    except Exception as e:
+        st.error("❌ Failed to exchange code for session.")
+        st.exception(e)
 else:
-    st.warning("Waiting for redirect...")
-    st.write("Raw URL:", url)
+    st.warning("No code in redirect URL.")
