@@ -258,10 +258,6 @@ def get_all_coa():
 def verify_user():
     if "access_token" in st.session_state and st.session_state["access_token"]:
         token = st.session_state["access_token"]
-    else:
-        token = cookie_manager.get("access_token")
-        if token:
-            st.session_state["access_token"] = token 
 
     if token:
         try:
@@ -293,8 +289,10 @@ def verify_user():
             else:
                 st.error(f"You are not logged in to access this page. Please log in.")
                 return False
+            
         except Exception as e:
             st.error(f"Error verifying user: {e}")
+            st.switch_page("Login.py")
             return False 
         
     return False

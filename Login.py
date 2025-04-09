@@ -44,7 +44,7 @@ def exchange_code_for_token(code):
 
 def main():
     st.cache_data.clear()
-    
+
     st.markdown("""
         <div style="text-align: center; margin-top: 40px; margin-bottom: 20px">
             <h2>Alcor Prime Dashboard Login</h2>
@@ -59,10 +59,9 @@ def main():
         parsed = urllib.parse.parse_qs(fragment)
         access_token = parsed.get("#access_token", [None])[0]
         access_token
+        
         st.info("Authorization code received. Exchanging for token...")
-
         st.session_state["access_token"] = access_token
-        cookie_manager.set("access_token", access_token, max_age=3600)
 
         st.success("Redirecting to dashboard...")
         st.switch_page("pages/1_Dashboard.py")
