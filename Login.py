@@ -1,32 +1,86 @@
-# pages/0_Login.py
 import streamlit as st
+import urllib.parse
+from streamlit_javascript import st_javascript
+from streamlit_cookies_controller import CookieController
 from services.supabaseService import supabase_client
+import services.styles as styles  # If you use any custom styling
+import time
 
-st.set_page_config(layout="centered", page_title="Login")
+st.set_page_config(layout="wide", page_icon="logo.png")
+cookie_manager = CookieController()
 
-st.title("🔐 Login to Alcor Prime Dashboard")
-st.write("Sign in with your Google account to continue.")
+REDIRECT_URI = st.secrets["google"]["REDIRECT_URI"]
 
-# Supabase will redirect back to this page after login
-REDIRECT_URI = "https://alcor-prime-dashboard.streamlit.app/~/+/Login_Redirect"  # Update if needed
+def main():
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        with st.container(border=True):
 
-response = supabase_client.auth.sign_in_with_oauth(
-    {
-        "provider": "google",
-        "options": {
-            "redirect_to": REDIRECT_URI,
-            "flow_type": "implicit"  # this is key!
-        }
-    }
-)
+            st.markdown(
+                """
+                <div style="text-align: center; margin-top: 40px; margin-bottom: 40px">
+                    <p style="font-size: 25px; font-weight: 600; margin-bottom:10px">Alcor Prime Dashboard</p>
+                    <p style="margin-bottom:40px"> Sign in with your company's Google Account </p>  
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
-login_button = f"""
-<div style="display: flex; justify-content: center;">
-    <a href="{response.url}" target="_self">
-        <button style="font-size: 16px; padding: 10px 20px; border-radius: 5px;">
-            Sign in with Google
-        </button>
-    </a>
-</div>
-"""
-st.markdown(login_button, unsafe_allow_html=True)
+            response = supabase_client.auth.sign_in_with_oauth(
+                {"provider": "google", "options": {"redirect_to": REDIRECT_URI}}
+            )
+
+            login_url = response.url
+
+            # Use markdown and JavaScript to force a redirect in the full window
+            st.markdown(f"""
+                <div style="display: flex; justify-content: center; margin-top: 20px;">
+                    <a href="{login_url}" id="login-btn" style="text-decoration: none;">
+                        <button style="
+                            font-size: 16px;
+                            padding: 15px 30px;
+                            border-radius: 30px;
+                            border: 2px solid gray;
+                            background-color: white;
+                            cursor: pointer;
+                            display: flex;
+                            align-items: center;
+                        ">
+                            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                                width="20" style="margin-right: 10px;" />
+                            Sign in with Google
+                        </button>
+                    </a>
+                </div>
+            """, unsafe_allow_html=True)
+            
+    url = st_javascript("await fetch('').then(() => window.parent.location.href)")
+
+    if url and "#access_token=" in url:
+        parsed = urllib.parse.parse_qs(urllib.parse.urlparse(url).fragment)
+        access_token = parsed.get("access_token", [None])[0]
+
+        if access_token:
+            try:
+                user = supabase_client.auth.get_user(access_token)
+                user_id = user.user.id
+
+                cookie_manager.set("access_token", access_token, max_age=3600)
+                st.session_state["access_token"] = access_token
+                st.session_state["authenticated"] = True
+                st.session_state["user_id"] = user_id
+
+                st.success("✅ Logged in successfully. Redirecting...")
+                time.sleep(1)
+                st.switch_page("pages/1_Dashboard.py")
+
+            except Exception as e:
+                st.error("Login failed. Invalid token.")
+                st.exception(e)
+
+        else:
+            st.error("Access token not found.")
+
+
+if __name__ == "__main__":
+    main()
