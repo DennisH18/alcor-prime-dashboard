@@ -43,6 +43,8 @@ def exchange_code_for_token(code):
         return None
 
 def main():
+    st.cache_data.clear()
+    
     st.markdown("""
         <div style="text-align: center; margin-top: 40px; margin-bottom: 20px">
             <h2>Alcor Prime Dashboard Login</h2>
