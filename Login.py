@@ -4,6 +4,8 @@ from streamlit_javascript import st_javascript
 import urllib.parse
 from streamlit_url_fragment import get_fragment
 from streamlit_cookies_controller import CookieController
+import cv2
+import base64
 
 SUPABASE_URL = st.secrets["supabase"]["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["supabase"]["SUPABASE_KEY"]
@@ -41,13 +43,22 @@ def exchange_code_for_token(code):
     else:
         st.error(f"Failed to exchange code for token: {response.text}")
         return None
+    
+def image_to_base64(image_path):
+    image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+    _, encoded_image = cv2.imencode(".png", image)
+    base64_image = base64.b64encode(encoded_image.tobytes()).decode("utf-8")
+    return base64_image
+
 
 def main():
-    st.cache_data.clear()
 
-    st.markdown("""
+    logo_base64 = image_to_base64("logo.png")
+
+    st.markdown(f"""
         <div style="text-align: center; margin-top: 40px; margin-bottom: 20px">
-            <h2>Alcor Prime Dashboard Login</h2>
+            <img src="data:image/png;base64,{logo_base64}" style="max-width: 200px; max-height: 200px; margin-bottom:30px"/>
+            <h2>Alcor Prime Dashboard</h2>
             <p>Sign in with your company's Google account</p>
         </div>
     """, unsafe_allow_html=True)

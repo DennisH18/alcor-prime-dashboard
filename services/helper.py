@@ -23,7 +23,7 @@ cookie_manager = CookieController()
 
 
 @st.cache_data
-def fetch_all_data():
+def fetch_dropbox_data():
     data_store = {}
     try:
         for entry in dbx.files_list_folder("").entries:
@@ -38,19 +38,28 @@ def fetch_all_data():
                     continue
 
                 for year_entry in year_entries:
-                    if isinstance(year_entry, dropbox.files.FolderMetadata) and year_entry.name.isdigit():
+                    if (
+                        isinstance(year_entry, dropbox.files.FolderMetadata)
+                        and year_entry.name.isdigit()
+                    ):
                         year = int(year_entry.name)
                         data_store[company][year] = {}
 
                         try:
-                            file_entries = dbx.files_list_folder(f"/{company}/{year}").entries
+                            file_entries = dbx.files_list_folder(
+                                f"/{company}/{year}"
+                            ).entries
                         except dropbox.exceptions.ApiError as e:
-                            st.warning(f"Skipping {company}/{year} due to API error: {e}")
+                            st.warning(
+                                f"Skipping {company}/{year} due to API error: {e}"
+                            )
                             continue
 
                         for file_entry in file_entries:
-                            
-                            if isinstance(file_entry, dropbox.files.FileMetadata) and file_entry.name.endswith(".xlsx"):
+
+                            if isinstance(
+                                file_entry, dropbox.files.FileMetadata
+                            ) and file_entry.name.endswith(".xlsx"):
                                 file_path = f"/{company}/{year}/{file_entry.name}"
 
                                 try:
@@ -60,14 +69,29 @@ def fetch_all_data():
                                     if "Management Report" in file_entry.name:
                                         df = pd.read_excel(xls, engine="openpyxl")
                                         data_store[company][year][file_entry.name] = df
-                                    elif "Budget" in file_entry.name:        
-                                        df = pd.read_excel(xls, sheet_name=company, engine="openpyxl")
+                                    elif "Budget" in file_entry.name:
+                                        df = pd.read_excel(
+                                            xls, sheet_name=company, engine="openpyxl"
+                                        )
                                         data_store[company][year][file_entry.name] = df
                                     elif "JPCC vs Others" in file_entry.name:
-                                        jpcc_sheet_name = next((s for s in xls.sheet_names if "jpcc vs others" in s.lower()), None)
+                                        jpcc_sheet_name = next(
+                                            (
+                                                s
+                                                for s in xls.sheet_names
+                                                if "jpcc vs others" in s.lower()
+                                            ),
+                                            None,
+                                        )
                                         if jpcc_sheet_name:
-                                            df = pd.read_excel(xls, sheet_name=jpcc_sheet_name, engine="openpyxl")
-                                            data_store[company][year][file_entry.name] = df
+                                            df = pd.read_excel(
+                                                xls,
+                                                sheet_name=jpcc_sheet_name,
+                                                engine="openpyxl",
+                                            )
+                                            data_store[company][year][
+                                                file_entry.name
+                                            ] = df
 
                                 except Exception as e:
                                     st.error(f"Error reading {file_entry.name}: {e}")
@@ -89,7 +113,12 @@ def get_available_months(data, companies, selected_year):
             if company in companies and year == str(selected_year):
                 months.add(month)
 
-    return sorted(months, key=lambda m: list(calendar.month_abbr).index(m)) if months else []
+    return (
+        sorted(months, key=lambda m: list(calendar.month_abbr).index(m))
+        if months
+        else []
+    )
+
 
 @st.cache_data
 def get_available_companies_and_years(data_store):
@@ -105,7 +134,7 @@ def transform_to_category_codes(pnl_account_categories_dict):
         "HUMAN RESOURCES",
         "OPERATIONAL EXPENSES",
         "DEPRECIATION & MAINTENANCE",
-        "OTHER INCOME / EXPENSES"
+        "OTHER INCOME / EXPENSES",
     ]
 
     transformed_dict = OrderedDict()
@@ -138,11 +167,13 @@ def export_all_tables_to_excel(company_html_dict):
     output = BytesIO()
     wb = Workbook()
 
-    header_fill = PatternFill(start_color="000000", end_color="000000", fill_type="solid")
+    header_fill = PatternFill(
+        start_color="000000", end_color="000000", fill_type="solid"
+    )
     header_font = Font(bold=True, color="FFFFFF")
 
-    number_format = '#,##0;(#,##0)'
-    percent_format = '0.0%;(0.0%)'
+    number_format = "#,##0;(#,##0)"
+    percent_format = "0.0%;(0.0%)"
 
     for company, table_html in company_html_dict.items():
         soup = BeautifulSoup(table_html, "html.parser")
@@ -157,35 +188,40 @@ def export_all_tables_to_excel(company_html_dict):
 
                 for cell in row.find_all(["td", "th"]):
                     while (row_idx, col_idx) in row_map:
-                        col_idx += 1  
+                        col_idx += 1
 
                     colspan = int(cell.get("colspan", 1))
                     rowspan = int(cell.get("rowspan", 1))
                     value = cell.get_text(strip=True)
 
-                    is_bold = cell.find("b") or cell.find("strong") or "font-weight: bold" in str(cell.get("style", "")).lower()
+                    is_bold = (
+                        cell.find("b")
+                        or cell.find("strong")
+                        or "font-weight: bold" in str(cell.get("style", "")).lower()
+                    )
 
-                    num_format = None 
+                    num_format = None
 
-
-                    if value.endswith('%'):
+                    if value.endswith("%"):
                         try:
-                            value = float(value.replace('%', '')) / 100
+                            value = float(value.replace("%", "")) / 100
                             num_format = percent_format
                         except ValueError:
                             pass
-                    elif '(' in value and ')' in value:
+                    elif "(" in value and ")" in value:
                         try:
-                            value = -float(value.replace('(', '').replace(')', '').replace(',', ''))
+                            value = -float(
+                                value.replace("(", "").replace(")", "").replace(",", "")
+                            )
                             num_format = number_format
                         except ValueError:
                             pass
-                    elif ',' in value:
+                    elif "," in value:
                         try:
-                            value = float(value.replace(',', ''))
+                            value = float(value.replace(",", ""))
                             num_format = number_format
                         except ValueError:
-                            pass  
+                            pass
 
                     cell_ref = ws.cell(row=row_idx, column=col_idx, value=value)
 
@@ -198,23 +234,31 @@ def export_all_tables_to_excel(company_html_dict):
 
                     # Apply number format only if num_format is set
                     if num_format:
-                        cell_ref.number_format = num_format  
+                        cell_ref.number_format = num_format
 
                     # Merge columns
                     if colspan > 1:
                         end_col = col_idx + colspan - 1
-                        ws.merge_cells(start_row=row_idx, start_column=col_idx, 
-                                       end_row=row_idx, end_column=end_col)
+                        ws.merge_cells(
+                            start_row=row_idx,
+                            start_column=col_idx,
+                            end_row=row_idx,
+                            end_column=end_col,
+                        )
                         col_idx = end_col
 
                     # Merge rows
                     if rowspan > 1:
                         for r in range(row_idx, row_idx + rowspan):
                             row_map[(r, col_idx)] = True
-                        ws.merge_cells(start_row=row_idx, start_column=col_idx,
-                                       end_row=row_idx + rowspan - 1, end_column=col_idx)
+                        ws.merge_cells(
+                            start_row=row_idx,
+                            start_column=col_idx,
+                            end_row=row_idx + rowspan - 1,
+                            end_column=col_idx,
+                        )
 
-                    col_idx += 1 
+                    col_idx += 1
 
     if "Sheet" in wb.sheetnames:
         del wb["Sheet"]
@@ -223,37 +267,41 @@ def export_all_tables_to_excel(company_html_dict):
     output.seek(0)
     return output
 
+
 def get_pnl_account_categories_dict():
 
     df = pd.DataFrame(supabaseService.fetch_data("COA"))
 
     pnl_account_categories_dict = {}
     for _, row in df.iterrows():
-        main_category = row['main_category']
-        subcategory = row['subcategory']
-        coa = row['coa']
-        description = row['description']
-        
+        main_category = row["main_category"]
+        subcategory = row["subcategory"]
+        coa = row["coa"]
+        description = row["description"]
+
         if main_category not in pnl_account_categories_dict:
             pnl_account_categories_dict[main_category] = {}
         if subcategory not in pnl_account_categories_dict[main_category]:
             pnl_account_categories_dict[main_category][subcategory] = {}
         pnl_account_categories_dict[main_category][subcategory][coa] = description
-    
+
     return pnl_account_categories_dict
 
 
 def get_all_coa():
     codes = []
+
     def recurse_dict(d):
         for key, value in d.items():
             if isinstance(value, dict):
-                recurse_dict(value)  
+                recurse_dict(value)
             else:
                 codes.append(key)
+
     recurse_dict(get_pnl_account_categories_dict())
 
     return codes
+
 
 def verify_user():
     if "access_token" in st.session_state and st.session_state["access_token"]:
@@ -265,33 +313,32 @@ def verify_user():
                 st.session_state["authenticated"] = True
                 st.session_state["user_id"] = response.user.id
 
-                st.sidebar.write(
-                    f"**{response.user.user_metadata['name']}**"
-                )
+                st.sidebar.write(f"**{response.user.user_metadata['name']}**")
                 st.sidebar.write("")
 
                 users_data = supabaseService.fetch_data("Users")
 
-                #implement Role based access
-    
+                # implement Role based access
+
                 st.sidebar.page_link("pages/1_Dashboard.py", label="Dashboard")
                 st.sidebar.page_link("pages/2_PNL_Report.py", label="PNL Report")
                 st.sidebar.page_link("pages/3_COA.py", label="COA")
-                st.sidebar.page_link("pages/4_JPCC_vs_Others.py", label="JPCC vs Others")
+                st.sidebar.page_link(
+                    "pages/4_JPCC_vs_Others.py", label="JPCC vs Others"
+                )
                 st.sidebar.page_link("pages/5_Users.py", label="Users")
 
                 # st.sidebar.write("")
                 # st.sidebar.page_link("Logout", key="logout")
 
                 return True
-            
+
             else:
                 st.error(f"You are not logged in to access this page. Please log in.")
                 return False
-            
+
         except Exception as e:
             st.error(f"Error verifying user: {e}")
-            return False 
-        
-    return False
+            return False
 
+    return False

@@ -507,12 +507,13 @@ def main():
         st.switch_page("Login.py")
         return
 
-    data_store = helper.fetch_all_data()
+    data_store = helper.fetch_dropbox_data()
     available_companies, available_years = helper.get_available_companies_and_years(
         data_store
     )
 
-    col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
+    col1, col2, col3, col4, col5, col6 = st.columns([2, 2 , 2, 2, 1, 1])
+
     with col1:
         st.markdown("<h3>PNL Report</h3>", unsafe_allow_html=True)
     with col2:
@@ -531,12 +532,10 @@ def main():
             ),
         )
         data = prepare_pnl_data(data_store, companies, selected_year)
-
     with col4:
         available_months = helper.get_available_months(
             data, available_companies, selected_year
         )
-
         if available_months:
             selected_month = st.selectbox(
                 "Select Month",
@@ -545,18 +544,23 @@ def main():
                 key="monthly",
             )
 
+    st.divider()
+
     company_html_dict = transform_data(data, selected_year, selected_month)
 
-    with col4:
-
+    with col5:
+        st.markdown("<div style='width: 1px; height: 28px'></div>", unsafe_allow_html=True)
         excel_file = helper.export_all_tables_to_excel(company_html_dict)
-
         st.download_button(
-            label=":green[**Download to Excel**]",
+            label=":green[**Download**]",
             data=excel_file,
             file_name="Profit and Loss Statement.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
+    with col6:
+        st.markdown("<div style='width: 1px; height: 28px'></div>", unsafe_allow_html=True)
+        if st.button("**Refresh**"):
+            st.cache_data.clear()
 
 
 if __name__ == "__main__":
