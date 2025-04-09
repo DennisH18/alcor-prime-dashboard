@@ -56,6 +56,7 @@ def main():
     fragment = get_fragment()
 
     if fragment:
+        fragment
         if  "#access_token=" in fragment:
             parsed = urllib.parse.parse_qs(fragment)
             access_token = parsed.get("#access_token", [None])[0]
