@@ -14,12 +14,9 @@ from bs4 import BeautifulSoup
 from openpyxl import Workbook
 from openpyxl.styles import Border, Side, Font, PatternFill
 import services.supabaseService as supabaseService
-from streamlit_cookies_controller import CookieController
-
 
 access_token = dropboxAuth.get_access_token()
 dbx = dropbox.Dropbox(access_token)
-cookie_manager = CookieController()
 
 
 @st.cache_data

@@ -3,14 +3,12 @@ import requests
 from streamlit_javascript import st_javascript
 import urllib.parse
 from streamlit_url_fragment import get_fragment
-from streamlit_cookies_controller import CookieController
 import cv2
 import base64
 
 SUPABASE_URL = st.secrets["supabase"]["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["supabase"]["SUPABASE_KEY"]
 REDIRECT_URI = st.secrets["google"]["REDIRECT_URI"]
-cookie_manager = CookieController()
 
 st.set_page_config(layout="wide", page_title="Alcor Prime Login")
 
