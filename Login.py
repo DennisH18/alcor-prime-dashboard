@@ -52,11 +52,9 @@ def main():
         </div>
     """, unsafe_allow_html=True)
 
-    code = get_auth_code()
     fragment = get_fragment()
 
     if fragment:
-        fragment
         if  "#access_token=" in fragment:
             parsed = urllib.parse.parse_qs(fragment)
             access_token = parsed.get("#access_token", [None])[0]
@@ -67,10 +65,9 @@ def main():
 
             st.success("Redirecting to dashboard...")
             st.switch_page("pages/1_Dashboard.py")
-        elif "error=" in fragment:
-            error = fragment.split("#error=")[1]
-            st.error(f"Error: {error}")
 
+        elif "error=" in fragment:
+            st.error(f"Login Failed, please use a valid account")
 
     else:
         login_url = f"{SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to={REDIRECT_URI}"
