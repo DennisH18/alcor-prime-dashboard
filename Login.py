@@ -1,11 +1,13 @@
 import streamlit as st
 import requests
+from streamlit_javascript import st_javascript
+import urllib.parse
 
 SUPABASE_URL = st.secrets["supabase"]["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["supabase"]["SUPABASE_KEY"]
 REDIRECT_URI = st.secrets["google"]["REDIRECT_URI"]
 
-st.set_page_config(layout="wide", page_title="Alcor Prime Login", page_icon="🔐")
+st.set_page_config(layout="wide", page_title="Alcor Prime Login")
 
 def get_auth_code():
     fragment = st_javascript("window.location.hash")
