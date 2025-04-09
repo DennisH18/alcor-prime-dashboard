@@ -2,6 +2,12 @@ import streamlit as st
 
 def style_page():
     st.logo("logo.png")
+    
+    st.sidebar.page_link("pages/1_Dashboard.py", label="Dashboard")
+    st.sidebar.page_link("pages/2_PNL_Report.py", label="PNL Report")
+    st.sidebar.page_link("pages/3_COA.py", label="COA")
+    st.sidebar.page_link("pages/4_JPCC_vs_Others.py", label="JPCC vs Others")
+    st.sidebar.page_link("pages/5_Users.py", label="Users")
 
     st.markdown(
         """

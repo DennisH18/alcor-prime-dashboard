@@ -87,8 +87,7 @@ def get_available_months(data, companies, selected_year):
         if len(parts) == 3:
             company, month, year = parts
             if company in companies and year == str(selected_year):
-                if all(value.get(k) for k in value):
-                    months.add(month)
+                months.add(month)
 
     return sorted(months, key=lambda m: list(calendar.month_abbr).index(m)) if months else []
 

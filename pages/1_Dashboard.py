@@ -333,6 +333,7 @@ def calculate_percentage_change(actual, budget):
 
 def display_monthly(data, selected_month, selected_year):
 
+
     companies = sorted(set(key.split("_")[0] for key in data.keys()))
 
     for company in companies:
@@ -343,6 +344,10 @@ def display_monthly(data, selected_month, selected_year):
             key: value for key, value in data.items() if key.startswith(company)
         }
         key = f"{company}_{selected_month}_{selected_year}"
+
+        if not data[key]["filtered_data"]:
+            st.warning(f"Data for {company} available for {selected_month}.")
+            continue
 
         filtered_data = {
             item["Category"]: item["Value"]
@@ -973,9 +978,8 @@ def prepare_data(data_store, companies, selected_year):
 
 def main():
 
-    if not helper.verify_user():
+    if not st.session_state.get("authenticated", False):
         st.switch_page("Login.py")
-        return
 
 
     data_store = helper.fetch_all_data()

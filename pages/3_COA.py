@@ -12,9 +12,8 @@ styles.style_page()
 
 def main():
 
-    if not helper.verify_user():
+    if not st.session_state.get("authenticated", False):
         st.switch_page("Login.py")
-        return
 
 
     df = pd.DataFrame(supabaseService.fetch_data("COA"))

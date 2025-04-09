@@ -1,105 +1,73 @@
 import streamlit as st
-import urllib.parse
-from streamlit_javascript import st_javascript
-from streamlit_cookies_controller import CookieController
-from services.supabaseService import supabase_client
-import services.styles as styles  # If you use any custom styling
-import time
+import base64
+import cv2
+from streamlit_js_eval import streamlit_js_eval
 
 st.set_page_config(layout="wide", page_icon="logo.png")
-cookie_manager = CookieController()
 
-REDIRECT_URI = st.secrets["google"]["REDIRECT_URI"]
+def image_to_base64(image_path):
+    image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+    _, encoded_image = cv2.imencode(".png", image)
+    base64_image = base64.b64encode(encoded_image.tobytes()).decode("utf-8")
+    return base64_image
 
+def render_img_html(image_b64):
+    st.markdown(
+        f"""
+        <div style="display: flex; justify-content: center; margin-bottom: 10px;">
+            <img src="data:image/png;base64,{image_b64}" style="max-width: 150px; max-height: 150px;"/>
+        </div>
+        """, 
+        unsafe_allow_html=True
+    )
 
 def main():
-    col1, col2, col3 = st.columns([1, 2, 1])
+    PASSWORD = st.secrets["password"]["PASSWORD"]
+
+    # Check for cookie using JS
+    auth_cookie = streamlit_js_eval(
+        js_expressions="document.cookie.includes('authenticated=true')", 
+        key="check_auth_cookie"
+    )
+
+    # If cookie exists, mark session as authenticated
+    if auth_cookie and not st.session_state.get("authenticated", False):
+        st.session_state["authenticated"] = True
+        st.rerun()
+
+    if st.session_state.get("authenticated"):
+        st.switch_page("pages/1_Dashboard.py")
+
+    # Hide sidebar for login
+    st.markdown("""
+        <style>
+            [data-testid="stSidebar"] { display: none; }
+        </style>
+    """, unsafe_allow_html=True)
+
+    # Centered login form
+    col1, col2, col3 = st.columns([1, 2, 1]) 
     with col2:
-        with st.container(border=True):
+        with st.form("login_form"):
+            st.write("#")
+            render_img_html(image_to_base64("logo.png"))
+            st.markdown("<h3 style='text-align: center;'>Login</h3>", unsafe_allow_html=True)
+            st.write("")
 
+            password_input = st.text_input("Enter Password", type="password")
+            submit = st.form_submit_button("Login")
 
-            st.markdown("""
-            <script>
-                const hash = window.location.hash;
-                if (hash && hash.includes("access_token")) {
-                    const params = new URLSearchParams(hash.slice(1));
-                    const query = params.toString();
-                    const cleanUrl = window.location.origin + window.location.pathname + "?" + query;
-                    window.location.replace(cleanUrl);  // Forces reload with ?access_token=...
-                }
-            </script>
-            """, unsafe_allow_html=True)
-            st.markdown(
-                """
-                <div style="text-align: center; margin-top: 40px; margin-bottom: 40px">
-                    <p style="font-size: 25px; font-weight: 600; margin-bottom:10px">Alcor Prime Dashboard</p>
-                    <p style="margin-bottom:40px"> Sign in with your company's Google Account </p>  
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-            response = supabase_client.auth.sign_in_with_oauth(
-                {
-                    "provider": "google",
-                    "options": {"redirect_to": REDIRECT_URI, "flow_type": "implicit"},
-                }
-            )
-
-            login_url = response.url
-
-            st.markdown(
-                f"""
-                <div style="display: flex; justify-content: center; margin-top: 20px;">
-                    <a href="{login_url}" id="login-btn" style="text-decoration: none;">
-                        <button style="
-                            font-size: 16px;
-                            padding: 15px 30px;
-                            border-radius: 30px;
-                            border: 2px solid gray;
-                            background-color: white;
-                            cursor: pointer;
-                            display: flex;
-                            align-items: center;
-                        ">
-                            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-                                width="20" style="margin-right: 10px;" />
-                            Sign in with Google
-                        </button>
-                    </a>
-                </div>
-            """,
-                unsafe_allow_html=True,
-            )
-
-    url = st_javascript("await fetch('').then(() => window.parent.location.href)")
-    url
-
-    if url and "#access_token=" in url:
-        parsed = urllib.parse.parse_qs(urllib.parse.urlparse(url).fragment)
-        access_token = parsed.get("access_token", [None])[0]
-
-        if access_token:
-            try:
-                user = supabase_client.auth.get_user(access_token)
-                user_id = user.user.id
-
-                cookie_manager.set("access_token", access_token, max_age=3600)
-                st.session_state["access_token"] = access_token
-                st.session_state["authenticated"] = True
-                st.session_state["user_id"] = user_id
-
-                st.success("✅ Logged in successfully. Redirecting...")
-                time.sleep(1)
-                st.switch_page("pages/1_Dashboard.py")
-
-            except Exception as e:
-                st.error("Login failed. Invalid token.")
-                st.exception(e)
-
-        else:
-            st.error("Access token not found.")
-
+            if submit:
+                if password_input == PASSWORD:
+                    st.session_state["authenticated"] = True
+                    streamlit_js_eval(
+                        js_expressions="document.cookie = 'authenticated=true; path=/';",
+                        key="set_auth_cookie"
+                    )
+                    st.success("Login successful! Redirecting...")
+                    st.rerun()
+                else:
+                    st.error("Incorrect password. Try again.")
 
 if __name__ == "__main__":
     main()

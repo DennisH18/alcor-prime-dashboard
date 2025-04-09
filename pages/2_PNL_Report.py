@@ -503,9 +503,8 @@ def display_pnl(df_final):
 
 def main():
 
-    if not helper.verify_user():
+    if not st.session_state.get("authenticated", False):
         st.switch_page("Login.py")
-        return
 
     data_store = helper.fetch_all_data()
     available_companies, available_years = helper.get_available_companies_and_years(
