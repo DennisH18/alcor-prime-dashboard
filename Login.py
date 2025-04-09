@@ -55,16 +55,22 @@ def main():
     code = get_auth_code()
     fragment = get_fragment()
 
-    if fragment and "#access_token=" in fragment:
-        parsed = urllib.parse.parse_qs(fragment)
-        access_token = parsed.get("#access_token", [None])[0]
-        access_token
-        
-        st.info("Authorization code received. Exchanging for token...")
-        st.session_state["access_token"] = access_token
+    if fragment:
+        if  "#access_token=" in fragment:
+            parsed = urllib.parse.parse_qs(fragment)
+            access_token = parsed.get("#access_token", [None])[0]
+            access_token
 
-        st.success("Redirecting to dashboard...")
-        st.switch_page("pages/1_Dashboard.py")
+            st.info("Authorization code received. Exchanging for token...")
+            st.session_state["access_token"] = access_token
+
+            st.success("Redirecting to dashboard...")
+            st.switch_page("pages/1_Dashboard.py")
+        elif "error=" in fragment:
+            error = fragment.split("#error=")[1]
+            st.error(f"Error: {error}")
+
+
     else:
         login_url = f"{SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to={REDIRECT_URI}"
 
