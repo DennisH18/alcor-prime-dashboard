@@ -176,6 +176,10 @@ def create_pie_chart(df, title):
 
 def comparison_pie_chart(pie_data, selected_year):
 
+    if not pie_data:
+        st.info(f"No data available")
+        return
+
     if pie_data:
         df = pd.DataFrame(
             [
@@ -351,10 +355,18 @@ def display_monthly(data, selected_month, selected_year):
         company_data = {
             key: value for key, value in data.items() if key.startswith(company)
         }
+
         key = f"{company}_{selected_month}_{selected_year}"
+        last_year_key = f"{company}_{selected_month}_{selected_year-1}"
 
         if not data[key]["filtered_data"]:
             st.warning(f"Data for {company} available for {selected_month}.")
+            continue
+        elif not data[last_year_key]["filtered_data"]:
+            st.warning(f"Last Year Data for {company} available for {selected_month}.")
+            continue
+        elif not data[key]["budget"]:
+            st.warning(f"Budget Data for {company} available for {selected_month}.")
             continue
 
         filtered_data = {
@@ -374,7 +386,6 @@ def display_monthly(data, selected_month, selected_year):
             for item in company_data.get(key, {}).get("budget", [])
         }
 
-        last_year_key = f"{company}_{selected_month}_{selected_year-1}"
         filtered_data_last_year = {
             item["Category"]: item["Value"]
             for item in company_data.get(last_year_key, {}).get("filtered_data", [])

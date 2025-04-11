@@ -82,7 +82,7 @@ def main():
         st.markdown(
             f"""
             <div style="display: flex; justify-content: center; margin-top: 40px;">
-                <a href="{login_url}" style="text-decoration: none;">
+                <a href="{login_url}" target="_self" style="text-decoration: none;">
                     <button style="
                         font-size: 16px;
                         padding: 15px 30px;

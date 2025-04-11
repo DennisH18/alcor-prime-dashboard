@@ -83,11 +83,18 @@ pnl_table_style = """
             font-weight: bold;
             text-align: center;
             position: sticky;
+            top: 30px;
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+            outline: 1px solid #ddd;
+        }
+        .month-row{
+            font-weight: bold;
+            text-align: center;
+            position: sticky;
             top: 1px;
             box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
             outline: 1px solid #ddd;
         }
-        
         .sticky1, .sticky2, .sticky3, .sticky4 {
             position: sticky;
             z-index: 50;
