@@ -1,16 +1,16 @@
-streamlit
-pandas
-numpy
-altair
-dropbox
-openpyxl
-beautifulsoup4
-html5lib
-requests
-opencv-python-headless
-streamlit_js_eval
-supabase
-bs4
-streamlit_url_fragment
-streamlit-cookies-controller
-streamlit_javascript
+streamlit==1.43.2
+pandas==2.2.3
+numpy==2.2.4
+altair==5.5.0
+dropbox==12.0.2
+openpyxl==3.1.5
+beautifulsoup4==4.13.3
+html5lib  # Not listed in your current env (optional: install if needed)
+requests==2.32.3
+opencv-python-headless==4.11.0.86
+streamlit-js-eval==0.1.7
+supabase==2.5.1
+bs4  # Usually a wrapper for beautifulsoup4 (already included)
+streamlit-url-fragment==0.2.1
+streamlit-javascript==0.1.5
+streamlit-supabase-auth==1.0.2

@@ -1,4 +1,5 @@
 import streamlit as st
+
 st.set_page_config(layout="wide", page_icon="logo.png")
 
 import pandas as pd
@@ -65,7 +66,6 @@ def waterfall_chart(data, last_year_data, budget_data):
 
     df["Category"] = df["Category"].replace(rename_map)
 
-
     bars = (
         alt.Chart(df)
         .mark_bar(size=30)
@@ -108,10 +108,7 @@ def waterfall_chart(data, last_year_data, budget_data):
 
 
 def create_pie_chart(df, title):
-    color_mapping = {
-        "JPCC": "#75aadb",
-        "Others": "#36416d"
-    }
+    color_mapping = {"JPCC": "#75aadb", "Others": "#36416d"}
 
     df["CategoryPrefix"] = df["Category"].str.split("_").str[0]
 
@@ -125,11 +122,12 @@ def create_pie_chart(df, title):
     df["startAngle"] = df["cumsum"] - df["theta"]
     df["midAngle"] = df["startAngle"] + df["theta"] / 2
     df["midAngleDeg"] = df["midAngle"] * 180 / 3.1415
-    df["Percentage"] = (df["Values"] / total * 100).round(0).astype(int).astype(str) + "%"
+    df["Percentage"] = (df["Values"] / total * 100).round(0).astype(int).astype(
+        str
+    ) + "%"
 
     color_enc = alt.Color(
-        "CategoryPrefix:N",
-        legend=alt.Legend(title=None, labelFontSize=12)
+        "CategoryPrefix:N", legend=alt.Legend(title=None, labelFontSize=12)
     )
 
     if present_mapping:
@@ -139,11 +137,8 @@ def create_pie_chart(df, title):
                 domain=list(present_mapping.keys()),
                 range=list(present_mapping.values()),
             ),
-        legend=alt.Legend(
-            title=str(title),
-            titleColor="black"
-        )        
-    )
+            legend=alt.Legend(title=str(title), titleColor="black"),
+        )
 
     pie_chart = (
         alt.Chart(df)
@@ -178,25 +173,43 @@ def create_pie_chart(df, title):
 
     return pie_chart + text_labels
 
+
 def comparison_pie_chart(pie_data, selected_year):
-    
+
+    if not pie_data:
+        st.info(f"No data available")
+        return
 
     if pie_data:
         df = pd.DataFrame(
             [
-                {"Category": f"JPCC_{selected_year}", "Values": pie_data[f"JPCC_{selected_year}"]},
-                {"Category": f"Others_{selected_year}", "Values": pie_data[f"Others_{selected_year}"]},
+                {
+                    "Category": f"JPCC_{selected_year}",
+                    "Values": pie_data[f"JPCC_{selected_year}"],
+                },
+                {
+                    "Category": f"Others_{selected_year}",
+                    "Values": pie_data[f"Others_{selected_year}"],
+                },
             ]
         )
         df_ly = pd.DataFrame(
             [
-                {"Category": f"JPCC_{selected_year-1}", "Values": pie_data[f"JPCC_{selected_year-1}"]},
-                {"Category": f"Others_{selected_year-1}", "Values": pie_data[f"Others_{selected_year-1}"]},
+                {
+                    "Category": f"JPCC_{selected_year-1}",
+                    "Values": pie_data[f"JPCC_{selected_year-1}"],
+                },
+                {
+                    "Category": f"Others_{selected_year-1}",
+                    "Values": pie_data[f"Others_{selected_year-1}"],
+                },
             ]
         )
-        
+
         st.altair_chart(create_pie_chart(df, selected_year), use_container_width=True)
-        st.altair_chart(create_pie_chart(df_ly, selected_year-1), use_container_width=True)
+        st.altair_chart(
+            create_pie_chart(df_ly, selected_year - 1), use_container_width=True
+        )
 
 
 def cost_pie_chart(pie_data):
@@ -317,7 +330,7 @@ def display_metric(title, key, amount, metric1, metric2):
         col1, col2 = st.columns([5, 2], gap="small")
         with col1:
             st.markdown(
-                    "<p style='font-size:12px; padding:0px; margin:0px;'>Change from Last Year</p>",
+                "<p style='font-size:12px; padding:0px; margin:0px;'>Change from Last Year</p>",
                 unsafe_allow_html=True,
             )
         with col2:
@@ -333,7 +346,6 @@ def calculate_percentage_change(actual, budget):
 
 def display_monthly(data, selected_month, selected_year):
 
-
     companies = sorted(set(key.split("_")[0] for key in data.keys()))
 
     for company in companies:
@@ -343,10 +355,18 @@ def display_monthly(data, selected_month, selected_year):
         company_data = {
             key: value for key, value in data.items() if key.startswith(company)
         }
+
         key = f"{company}_{selected_month}_{selected_year}"
+        last_year_key = f"{company}_{selected_month}_{selected_year-1}"
 
         if not data[key]["filtered_data"]:
             st.warning(f"Data for {company} available for {selected_month}.")
+            continue
+        elif not data[last_year_key]["filtered_data"]:
+            st.warning(f"Last Year Data for {company} available for {selected_month}.")
+            continue
+        elif not data[key]["budget"]:
+            st.warning(f"Budget Data for {company} available for {selected_month}.")
             continue
 
         filtered_data = {
@@ -366,7 +386,6 @@ def display_monthly(data, selected_month, selected_year):
             for item in company_data.get(key, {}).get("budget", [])
         }
 
-        last_year_key = f"{company}_{selected_month}_{selected_year-1}"
         filtered_data_last_year = {
             item["Category"]: item["Value"]
             for item in company_data.get(last_year_key, {}).get("filtered_data", [])
@@ -634,10 +653,12 @@ def display_cash_flow_table(data, selected_year):
         headers = ["ID", "Category", "Actual/Target"] + all_months + ["YTD"]
         rows = ""
         row_id = 1
-        category_order = list(account_categories.keys()) 
+        category_order = list(account_categories.keys())
         sorted_categories = sorted(
             cash_flow[company].keys(),
-            key=lambda x: category_order.index(x) if x in category_order else float("inf")
+            key=lambda x: (
+                category_order.index(x) if x in category_order else float("inf")
+            ),
         )
         for category in sorted_categories:
             if category == "NET PROFIT MARGIN (%)":
@@ -909,15 +930,15 @@ def prepare_data(data_store, companies, selected_year):
                     df["nan_2"] = df["nan_2"].fillna(df["nan_3"])
                     df.drop(columns=["nan_3"], inplace=True)
 
-
                     def clean_string(s):
                         return str(s).strip().upper()
 
-                    predefined_budget_cleaned = {clean_string(k): v for k, v in predefined_budget.items()}
+                    predefined_budget_cleaned = {
+                        clean_string(k): v for k, v in predefined_budget.items()
+                    }
                     df["nan_2"] = df["nan_2"].apply(clean_string)
                     df = df[df["nan_2"].isin(predefined_budget_cleaned.keys())]
                     df["nan_2"] = df["nan_2"].map(predefined_budget_cleaned)
-
 
                     for month in df.columns[1:]:
                         key = f"{company}_{to_camel_case(month.split()[0])}_{year}"
@@ -964,12 +985,20 @@ def prepare_data(data_store, companies, selected_year):
             result = []
 
             for _, row in current_year_data.iterrows():
-                result.append({"Category": f"JPCC_{selected_year}", "Value": row["jpcc"]})
-                result.append({"Category": f"Others_{selected_year}", "Value": row["others"]})
+                result.append(
+                    {"Category": f"JPCC_{selected_year}", "Value": row["jpcc"]}
+                )
+                result.append(
+                    {"Category": f"Others_{selected_year}", "Value": row["others"]}
+                )
 
             for _, row in last_year_data.iterrows():
-                result.append({"Category": f"JPCC_{selected_year-1}", "Value": row["jpcc"]})
-                result.append({"Category": f"Others_{selected_year-1}", "Value": row["others"]})
+                result.append(
+                    {"Category": f"JPCC_{selected_year-1}", "Value": row["jpcc"]}
+                )
+                result.append(
+                    {"Category": f"Others_{selected_year-1}", "Value": row["others"]}
+                )
 
             results[key]["jpcc_vs_others"] = result
 
@@ -978,16 +1007,16 @@ def prepare_data(data_store, companies, selected_year):
 
 def main():
 
-    if not st.session_state.get("authenticated", False):
+    if not helper.verify_user():
         st.switch_page("Login.py")
+        return
 
-
-    data_store = helper.fetch_all_data()
+    data_store = helper.fetch_dropbox_data()
     available_companies, available_years = helper.get_available_companies_and_years(
         data_store
     )
 
-    col1, col2, col3 = st.columns([4, 1, 1])
+    col1, col2, col3, col4 = st.columns([4, 2, 2, 1])
     with col1:
         st.markdown("<h3>Finance Dashboard</h3>", unsafe_allow_html=True)
     with col2:
@@ -1005,6 +1034,12 @@ def main():
                 else 0
             ),
         )
+    with col4:
+        st.markdown("<div style='width: 1px; height: 28px'></div>", unsafe_allow_html=True)
+        if st.button("**Refresh**"):
+            st.cache_data.clear()
+            st.rerun()
+
 
     data = prepare_data(data_store, companies, selected_year)
     available_months = helper.get_available_months(data, companies, selected_year)

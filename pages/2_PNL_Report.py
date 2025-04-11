@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import datetime as dt
 import calendar
+import re
+import math
 
 import services.helper as helper
 import services.styles as styles
@@ -162,6 +164,7 @@ def transform_data(data, selected_year, selected_month):
                 )
 
         df = pd.DataFrame(table_data)
+
         df["Month"] = pd.Categorical(df["Month"], categories=month_order, ordered=True)
 
         df_pivot = df.pivot_table(
@@ -292,12 +295,14 @@ def transform_data(data, selected_year, selected_month):
                 var_actual = (
                     f"Variance {month} (Actual {selected_year} vs {selected_year - 1})"
                 )
-                df_final[var_actual] = df_final[actual_col] - df_final[prev_actual_col]
+                df_final[var_actual] = df_final[actual_col].fillna(0) - df_final[prev_actual_col].fillna(0)
                 new_columns[actual_col] = var_actual
 
             if actual_col in df_final.columns and budget_col in df_final.columns:
                 var_budget = f"Variance {month} (Budget vs Actual {selected_year})"
-                df_final[var_budget] = df_final[actual_col] - df_final[budget_col]
+
+                df_final[var_budget] = df_final[actual_col].fillna(0) - df_final[budget_col].fillna(0)
+
                 new_columns[budget_col] = var_budget
 
         ytd_actual_prev = f"YTD Actual {selected_year - 1}"
@@ -342,6 +347,27 @@ def transform_data(data, selected_year, selected_month):
             cols.insert(idx + 1, cols.pop(cols.index(value)))
         df_final = df_final[cols]
 
+        df_final["Main Category"] = pd.Categorical(
+            df_final["Main Category"],
+            categories=account_categories.keys(),
+            ordered=True,
+        )
+
+        df_final["Subcategory Order"] = df_final["Subcategory"].map(
+            lambda x: subcategory_order.get(x, (999, 999))
+        )
+        ordered_coa = []
+        for codes in account_categories.values():
+            if codes is not None:
+                ordered_coa.extend(codes)
+        coa_order_map = {coa: i for i, coa in enumerate(ordered_coa)}
+
+        df_final["COA Order"] = df_final["COA"].map(lambda x: coa_order_map.get(x, float("inf")))
+        df_final = df_final.sort_values(
+            by=["Main Category", "Subcategory Order", "COA Order"], ascending=True
+        ).drop(columns=["Subcategory Order", "COA Order"])
+
+
         st.markdown(f"<h4>{company}</h4>", unsafe_allow_html=True)
 
         company_html_table = display_pnl(df_final)
@@ -354,27 +380,30 @@ def format_value(value, is_percentage=False):
     try:
         if isinstance(value, str):
             value = value.replace(",", "").replace("(", "-").replace(")", "")
-            value = float(value) if value.replace(".", "", 1).isdigit() else value
+            value = float(value) if value.replace(".", "", 1).replace("-", "").isdigit() else value
 
         if isinstance(value, (int, float)):
-            if value == 0:
-                return "-"
-
             if is_percentage:
+                if value is None or value == 0 or math.isnan(value) or math.isinf(value):
+                    return ""
                 return f"({abs(value):.1f}%)" if value < 0 else f"{value:.1f}%"
-            return f"({abs(int(value)):,})" if value < 0 else f"{int(value):,}"
+            else:
+                if value is None or value == 0 or math.isnan(value) or math.isinf(value):
+                    return "-"
+                return f"({abs(int(value)):,})" if value < 0 else f"{int(value):,}"
 
-    except ValueError:
+    except (ValueError, TypeError):
         pass
 
-    return value
+    return ""
 
 
 def display_pnl(df_final):
 
-    # Setting the headers
     headers = df_final.columns.tolist()
     month_columns = headers[4:]
+    month_abbr = set(calendar.month_abbr[1:])
+    month_abbr.add("YTD")
 
     updated_headers = []
     for col in headers:
@@ -382,34 +411,67 @@ def display_pnl(df_final):
         if col in month_columns:
             updated_headers.append(f"{col} %")
 
-    colors = ["#FFDDC1", "#FFABAB", "#D5AAFF", "#85E3FF", "#B9FBC0", "#FF9CEE"]
+    colors = [
+        "#C6D8FF",
+        "#FFD6A5",
+        "#FFB5E8",
+        "#B5F2EA",
+        "#FFDAC1",
+        "#E0BBE4",
+        "#BFFCC6",
+        "#FFC9DE",
+        "#D5AAFF",
+        "#AFCBFF",
+        "#FFE6CC",
+        "#A2F5BF",
+        "#FFABAB",
+    ]
+    added_months = set()
+    month_header_html = "<tr>"
+    sub_header_html = "<tr>"
 
-    header_html = "<tr>"
     for i, col in enumerate(updated_headers):
-
         if i in [0, 1]:
-            header_html += (
-                f"<th class='header-row sticky{i+1} gray' style='z-index: 100;'></th>"
-            )
+            month_header_html += f"<th class='month-row sticky{i+1} gray' style='z-index: 100;' rowspan='2'></th>"
+            sub_header_html += ""
         elif i in [2, 3]:
-            header_html += f"<th class='header-row sticky{i+1} gray' style='z-index: 100;'>{col}</th>"
-
+            month_header_html += f"<th class='month-row sticky{i+1} gray' style='z-index: 100;' rowspan='2'>{col}</th>"
+            sub_header_html += ""
         else:
             group_index = (i - 4) // 10
             color = colors[group_index % len(colors)]
 
-            if "%" in col:
-                header_html += (
+            matched_month = None
+            for month in month_abbr:
+                if month in col:
+                    matched_month = month
+                    break
+
+            if matched_month and matched_month not in added_months:
+                month_header_html += f"<th colspan='10' class='month-row' style='background-color: {color}'>{matched_month}</th>"
+                added_months.add(matched_month)
+
+            cleaned_col = re.sub(rf"\b({'|'.join(month_abbr)})\b\s?", "", col).strip()
+
+            if "%" in cleaned_col:
+                sub_header_html += (
                     f"<th class='header-row' style='background-color: {color};'>%</th>"
                 )
-            elif "Variance" in col:
-                header_html += f"<th class='header-row' style='background-color: {color};'>Variance</th>"
+            elif "Variance" in cleaned_col:
+                sub_header_html += f"<th class='header-row' style='background-color: {color};'>Variance</th>"
             else:
-                header_html += f"<th class='header-row' style='background-color: {color};'>{col}</th>"
+                sub_header_html += f"<th class='header-row' style='background-color: {color};'>{cleaned_col}</th>"
 
-    header_html += "</tr>"
+    month_header_html += "</tr>"
+    sub_header_html += "</tr>"
+    header_html = month_header_html + "\n" + sub_header_html
+
+    total_revenue = df_final[df_final["Main Category"] == "REVENUE"][
+        month_columns
+    ].sum()
 
     # Generating Content
+    value_headers = headers[4:]
     html_rows = ""
     for main_cat, main_df in df_final.groupby("Main Category", sort=False):
 
@@ -418,10 +480,37 @@ def display_pnl(df_final):
         if main_cat in ["GROSS PROFIT", "TOTAL EXPENSES", "NET PROFIT"]:
             total_row = [f"<td colspan='4' class='sticky1'><b>{main_cat}</b></td>"]
 
-            for col in headers[4:]:
+            for col in value_headers:
                 total_row.append(f"<td><b>{format_value(main_totals[col])}</b></td>")
+
                 if col in month_columns:
-                    total_row.append("<td><b>100%</b></td>")
+                    col_index = value_headers.index(col)
+
+                    if "Variance" in col and "Budget" in col:
+                        budget_col = value_headers[col_index - 1]
+                        percentage = (
+                            (main_totals[col] / main_totals[budget_col] * 100)
+                        )
+
+                        total_row.append(
+                            f"<td><b>{format_value(percentage, is_percentage=True)}</b></td>"
+                        )
+                    elif "Variance" in col and "Budget" not in col:
+                        last_year_col = value_headers[col_index - 2]
+                        percentage = (
+                            (main_totals[col] / main_totals[last_year_col] * 100)
+                        )
+
+                        total_row.append(
+                            f"<td><b>{format_value(percentage, is_percentage=True)}</b></td>"
+                        )
+                    else:
+                        percentage = (
+                            (main_totals[col] / total_revenue[col] * 100)
+                        )
+                        total_row.append(
+                            f"<td><b>{format_value(percentage, is_percentage=True)}</b></td>"
+                        )
 
             html_rows += f"<tr class='main-total'>{''.join(total_row)}</tr>"
             continue
@@ -463,28 +552,126 @@ def display_pnl(df_final):
             total_row = [
                 f"<td class='sticky1'></td><td colspan=3 class='sticky2'><b>Total {sub_cat}</b></td>"
             ]
-            for col in headers[4:]:
+
+            for col in value_headers:
                 if col in month_columns:
                     total_row.append(f"<td><b>{format_value(sub_totals[col])}</b></td>")
-                    percentage = (
-                        (sub_totals[col] / main_totals[col] * 100)
-                        if main_totals[col] != 0
-                        else 0
-                    )
-                    total_row.append(
-                        f"<td><b>{format_value(percentage, is_percentage=True)}</b></td>"
-                    )
+                    col_index = value_headers.index(col)
+
+                    if "Variance" in col and "Budget" in col:
+                        budget_col = value_headers[col_index - 1]
+                        percentage = (
+                            (sub_totals[col] / sub_totals[budget_col] * 100)
+                        )
+
+                        total_row.append(
+                            f"<td><b>{format_value(percentage, is_percentage=True)}</b></td>"
+                        )
+                    elif "Variance" in col and "Budget" not in col:
+                        last_year_col = value_headers[col_index - 2]
+                        percentage = (
+                            (sub_totals[col] / sub_totals[last_year_col] * 100)
+                        )
+
+                        total_row.append(
+                            f"<td><b>{format_value(percentage, is_percentage=True)}</b></td>"
+                        )
+                    else:
+                        percentage = (
+                            (sub_totals[col] / total_revenue[col] * 100)
+                            if total_revenue[col] != 0
+                            else 0
+                        )
+                        total_row.append(
+                            f"<td><b>{format_value(percentage, is_percentage=True)}</b></td>"
+                        )
                 else:
                     total_row.append("<td><b></b></td>")
 
             html_rows += f"<tr class='sub-total'>{''.join(total_row)}</tr>"
 
+        
+        if main_cat == "HUMAN RESOURCES":
+            perm_cats = ["Salary and Benefit", "Medical", "Other"]
+            hr_perm_df = main_df[main_df["Subcategory"].isin(perm_cats)]
+            hr_nonperm_df = main_df[~main_df["Subcategory"].isin(perm_cats)]
+
+            def build_hr_total_row(df, label):
+                totals = {col: df[col].sum() for col in month_columns}
+                row = [f"<td colspan=4 class='sticky1'><b>{label}</b></td>"]
+
+                for col in value_headers:
+                    if col in month_columns:
+                        row.append(f"<td><b>{format_value(totals[col])}</b></td>")
+                        col_index = value_headers.index(col)
+
+                        if "Variance" in col and "Budget" in col:
+                            budget_col = value_headers[col_index - 1]
+                            perc = (
+                                (totals[col] / totals[budget_col] * 100)
+                                if totals[budget_col] != 0 else 0
+                            )
+                            row.append(f"<td><b>{format_value(perc, is_percentage=True)}</b></td>")
+
+                        elif "Variance" in col and "Budget" not in col:
+                            last_year_col = value_headers[col_index - 2]
+                            perc = (
+                                (totals[col] / totals[last_year_col] * 100)
+                                if totals[last_year_col] != 0 else 0
+                            )
+                            row.append(f"<td><b>{format_value(perc, is_percentage=True)}</b></td>")
+
+                        else:
+                            perc = (
+                                (totals[col] / total_revenue[col] * 100)
+                                if total_revenue[col] != 0 else 0
+                            )
+                            row.append(f"<td><b>{format_value(perc, is_percentage=True)}</b></td>")
+                    else:
+                        row.append("<td><b></b></td>")
+
+                return f"<tr class='sub-total'>{''.join(row)}</tr>"
+
+            if not hr_perm_df.empty:
+                html_rows += build_hr_total_row(hr_perm_df, "Total HR Permanent")
+
+            if not hr_nonperm_df.empty:
+                html_rows += build_hr_total_row(hr_nonperm_df, "Total HR Non-Permanent")
+
         # Main Category Total Row
         total_row = [f"<td colspan=4 class='sticky1'><b>TOTAL {main_cat}</b></td>"]
-        for col in headers[4:]:
+        for col in value_headers:
             total_row.append(f"<td><b>{format_value(main_totals[col])}</b></td>")
-            if col in month_columns:
-                total_row.append("<td><b>100%</b></td>")
+            col_index = value_headers.index(col)
+
+            if "Variance" in col and "Budget" in col:
+                budget_col = value_headers[col_index - 1]
+
+                percentage = (
+                    (main_totals[col] / main_totals[budget_col] * 100)
+                )
+
+                total_row.append(
+                    f"<td><b>{format_value(percentage, is_percentage=True)}</b></td>"
+                )
+            elif "Variance" in col and "Budget" not in col:
+                last_year_col = value_headers[col_index - 2]
+                percentage = (
+                    (main_totals[col] / main_totals[last_year_col] * 100)
+                )
+
+                total_row.append(
+                    f"<td><b>{format_value(percentage, is_percentage=True)}</b></td>"
+                )
+            else:
+                percentage = (
+                    (main_totals[col] / total_revenue[col] * 100)
+                    if total_revenue[col] != 0
+                    else 0
+                )
+                total_row.append(
+                    f"<td><b>{format_value(percentage, is_percentage=True)}</b></td>"
+                )
 
         html_rows += f"<tr class='main-total'>{''.join(total_row)}</tr>"
 
@@ -502,16 +689,18 @@ def display_pnl(df_final):
 
 
 def main():
-
-    if not st.session_state.get("authenticated", False):
+    
+    if not helper.verify_user():
         st.switch_page("Login.py")
+        return
 
-    data_store = helper.fetch_all_data()
+    data_store = helper.fetch_dropbox_data()
     available_companies, available_years = helper.get_available_companies_and_years(
         data_store
     )
 
-    col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
+    col1, col2, col3, col4, col5, col6 = st.columns([2, 2, 2, 2, 1, 1])
+
     with col1:
         st.markdown("<h3>PNL Report</h3>", unsafe_allow_html=True)
     with col2:
@@ -530,12 +719,10 @@ def main():
             ),
         )
         data = prepare_pnl_data(data_store, companies, selected_year)
-
     with col4:
         available_months = helper.get_available_months(
             data, available_companies, selected_year
         )
-
         if available_months:
             selected_month = st.selectbox(
                 "Select Month",
@@ -544,18 +731,28 @@ def main():
                 key="monthly",
             )
 
+    st.divider()
+
     company_html_dict = transform_data(data, selected_year, selected_month)
 
-    with col4:
-
+    with col5:
+        st.markdown(
+            "<div style='width: 1px; height: 28px'></div>", unsafe_allow_html=True
+        )
         excel_file = helper.export_all_tables_to_excel(company_html_dict)
-
         st.download_button(
-            label=":green[**Download to Excel**]",
+            label=":green[**Download**]",
             data=excel_file,
             file_name="Profit and Loss Statement.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
+    with col6:
+        st.markdown(
+            "<div style='width: 1px; height: 28px'></div>", unsafe_allow_html=True
+        )
+        if st.button("**Refresh**"):
+            st.cache_data.clear()
+            st.rerun()
 
 
 if __name__ == "__main__":

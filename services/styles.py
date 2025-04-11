@@ -2,12 +2,6 @@ import streamlit as st
 
 def style_page():
     st.logo("logo.png")
-    
-    st.sidebar.page_link("pages/1_Dashboard.py", label="Dashboard")
-    st.sidebar.page_link("pages/2_PNL_Report.py", label="PNL Report")
-    st.sidebar.page_link("pages/3_COA.py", label="COA")
-    st.sidebar.page_link("pages/4_JPCC_vs_Others.py", label="JPCC vs Others")
-    st.sidebar.page_link("pages/5_Users.py", label="Users")
 
     st.markdown(
         """
@@ -89,11 +83,18 @@ pnl_table_style = """
             font-weight: bold;
             text-align: center;
             position: sticky;
+            top: 30px;
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+            outline: 1px solid #ddd;
+        }
+        .month-row{
+            font-weight: bold;
+            text-align: center;
+            position: sticky;
             top: 1px;
             box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
             outline: 1px solid #ddd;
         }
-        
         .sticky1, .sticky2, .sticky3, .sticky4 {
             position: sticky;
             z-index: 50;
