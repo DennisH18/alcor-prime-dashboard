@@ -3,6 +3,7 @@ import pandas as pd
 import datetime as dt
 import calendar
 import re
+import math
 
 import services.helper as helper
 import services.styles as styles
@@ -293,13 +294,13 @@ def transform_data(data, selected_year, selected_month):
                 var_actual = (
                     f"Variance {month} (Actual {selected_year} vs {selected_year - 1})"
                 )
-                df_final[var_actual] = df_final[prev_actual_col].fillna(0) - df_final[actual_col]
+                df_final[var_actual] = df_final[actual_col].fillna(0) - df_final[prev_actual_col].fillna(0)
                 new_columns[actual_col] = var_actual
 
             if actual_col in df_final.columns and budget_col in df_final.columns:
                 var_budget = f"Variance {month} (Budget vs Actual {selected_year})"
 
-                df_final[var_budget] = df_final[budget_col].fillna(0) - df_final[actual_col]
+                df_final[var_budget] = df_final[actual_col].fillna(0) - df_final[budget_col].fillna(0)
 
                 new_columns[budget_col] = var_budget
 
@@ -324,7 +325,7 @@ def transform_data(data, selected_year, selected_month):
         ].sum(axis=1)
 
         df_final[f"YTD Variance (Actual {selected_year} vs {selected_year - 1})"] = (
-            df_final[ytd_actual_prev] - df_final[ytd_actual_current]
+            df_final[ytd_actual_current] - df_final[ytd_actual_prev]
         )
 
         df_final[ytd_budget_current] = df_final[
@@ -336,7 +337,7 @@ def transform_data(data, selected_year, selected_month):
         ].sum(axis=1)
 
         df_final[f"YTD Variance (Budget vs Actual {selected_year})"] = (
-            df_final[ytd_budget_current] - df_final[ytd_actual_current]
+            df_final[ytd_actual_current] - df_final[ytd_budget_current]
         )
 
         cols = list(df_final.columns)
@@ -357,20 +358,22 @@ def format_value(value, is_percentage=False):
     try:
         if isinstance(value, str):
             value = value.replace(",", "").replace("(", "-").replace(")", "")
-            value = float(value) if value.replace(".", "", 1).isdigit() else value
+            value = float(value) if value.replace(".", "", 1).replace("-", "").isdigit() else value
 
         if isinstance(value, (int, float)):
-            if value == 0:
-                return "-"
-
             if is_percentage:
+                if value is None or value == 0 or math.isnan(value) or math.isinf(value):
+                    return ""
                 return f"({abs(value):.1f}%)" if value < 0 else f"{value:.1f}%"
-            return f"({abs(int(value)):,})" if value < 0 else f"{int(value):,}"
+            else:
+                if value is None or value == 0 or math.isnan(value) or math.isinf(value):
+                    return "-"
+                return f"({abs(int(value)):,})" if value < 0 else f"{int(value):,}"
 
-    except ValueError:
+    except (ValueError, TypeError):
         pass
 
-    return value
+    return ""
 
 
 def display_pnl(df_final):
@@ -564,6 +567,54 @@ def display_pnl(df_final):
                     total_row.append("<td><b></b></td>")
 
             html_rows += f"<tr class='sub-total'>{''.join(total_row)}</tr>"
+
+        
+        if main_cat == "HUMAN RESOURCES":
+            perm_cats = ["Salary and Benefit", "Medical", "Other"]
+            hr_perm_df = main_df[main_df["Subcategory"].isin(perm_cats)]
+            hr_nonperm_df = main_df[~main_df["Subcategory"].isin(perm_cats)]
+
+            def build_hr_total_row(df, label):
+                totals = {col: df[col].sum() for col in month_columns}
+                row = [f"<td colspan=4 class='sticky1'><b>{label}</b></td>"]
+
+                for col in value_headers:
+                    if col in month_columns:
+                        row.append(f"<td><b>{format_value(totals[col])}</b></td>")
+                        col_index = value_headers.index(col)
+
+                        if "Variance" in col and "Budget" in col:
+                            budget_col = value_headers[col_index - 1]
+                            perc = (
+                                (totals[col] / totals[budget_col] * 100)
+                                if totals[budget_col] != 0 else 0
+                            )
+                            row.append(f"<td><b>{format_value(perc, is_percentage=True)}</b></td>")
+
+                        elif "Variance" in col and "Budget" not in col:
+                            last_year_col = value_headers[col_index - 2]
+                            perc = (
+                                (totals[col] / totals[last_year_col] * 100)
+                                if totals[last_year_col] != 0 else 0
+                            )
+                            row.append(f"<td><b>{format_value(perc, is_percentage=True)}</b></td>")
+
+                        else:
+                            perc = (
+                                (totals[col] / total_revenue[col] * 100)
+                                if total_revenue[col] != 0 else 0
+                            )
+                            row.append(f"<td><b>{format_value(perc, is_percentage=True)}</b></td>")
+                    else:
+                        row.append("<td><b></b></td>")
+
+                return f"<tr class='sub-total'>{''.join(row)}</tr>"
+
+            if not hr_perm_df.empty:
+                html_rows += build_hr_total_row(hr_perm_df, "Total HR Permanent")
+
+            if not hr_nonperm_df.empty:
+                html_rows += build_hr_total_row(hr_nonperm_df, "Total HR Non-Permanent")
 
         # Main Category Total Row
         total_row = [f"<td colspan=4 class='sticky1'><b>TOTAL {main_cat}</b></td>"]
