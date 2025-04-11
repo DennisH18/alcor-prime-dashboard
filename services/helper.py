@@ -183,22 +183,29 @@ desired_order = [
     ]),
 ]
 
+
 def transform_to_category_codes(pnl_account_categories_dict):
     transformed_dict = OrderedDict()
     raw_transformed = {}
 
     for main_category, subcategories in pnl_account_categories_dict.items():
         if isinstance(subcategories, dict):
-            category_codes = []
-            for subcategory, codes in subcategories.items():
-                category_codes.append(subcategory)
-            raw_transformed[main_category] = category_codes
+            raw_transformed[main_category] = subcategories
 
     for main_category, subcategory_order in desired_order:
-        if main_category in raw_transformed:
-            subcategories = raw_transformed[main_category]
-            ordered_subcategories = [subcategory for subcategory in subcategory_order if subcategory in subcategories]
-            transformed_dict[main_category] = ordered_subcategories
+        if main_category not in raw_transformed:
+            continue
+
+        subcategories = raw_transformed[main_category]
+
+        for subcat in subcategory_order:
+            if subcat in subcategories:
+                codes = subcategories[subcat]
+
+                if main_category not in transformed_dict:
+                    transformed_dict[main_category] = []
+
+                transformed_dict[main_category].extend(codes)
 
     transformed_items = list(transformed_dict.items())
     if "GROSS PROFIT" not in transformed_dict:
