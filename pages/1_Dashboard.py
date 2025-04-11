@@ -879,7 +879,7 @@ def prepare_data(data_store, companies, selected_year):
 
                     # Top expenses
                     category_col = df.columns[0]
-                    df[category_col] = df[category_col].astype(int)
+                    df['category_id'] = pd.to_numeric(df['category_id'], errors='coerce')
                     operating_expense_df = df[
                         df[category_col].isin(
                             account_categories["OPERATIONAL EXPENSES"]

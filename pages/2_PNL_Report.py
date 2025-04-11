@@ -164,6 +164,12 @@ def transform_data(data, selected_year, selected_month):
                 )
 
         df = pd.DataFrame(table_data)
+        required_cols = ['Month', 'COA', 'Value']
+        missing = [col for col in required_cols if col not in df.columns]
+        if missing:
+            st.error(f"Missing columns: {missing}")
+            st.stop()
+
         df["Month"] = pd.Categorical(df["Month"], categories=month_order, ordered=True)
 
         df_pivot = df.pivot_table(
