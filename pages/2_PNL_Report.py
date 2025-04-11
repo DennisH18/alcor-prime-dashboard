@@ -347,6 +347,27 @@ def transform_data(data, selected_year, selected_month):
             cols.insert(idx + 1, cols.pop(cols.index(value)))
         df_final = df_final[cols]
 
+        df_final["Main Category"] = pd.Categorical(
+            df_final["Main Category"],
+            categories=account_categories.keys(),
+            ordered=True,
+        )
+
+        df_final["Subcategory Order"] = df_final["Subcategory"].map(
+            lambda x: subcategory_order.get(x, (999, 999))
+        )
+        ordered_coa = []
+        for codes in account_categories.values():
+            if codes is not None:
+                ordered_coa.extend(codes)
+        coa_order_map = {coa: i for i, coa in enumerate(ordered_coa)}
+
+        df_final["COA Order"] = df_final["COA"].map(lambda x: coa_order_map.get(x, float("inf")))
+        df_final = df_final.sort_values(
+            by=["Main Category", "Subcategory Order", "COA Order"], ascending=True
+        ).drop(columns=["Subcategory Order", "COA Order"])
+
+
         st.markdown(f"<h4>{company}</h4>", unsafe_allow_html=True)
 
         company_html_table = display_pnl(df_final)
@@ -668,7 +689,7 @@ def display_pnl(df_final):
 
 
 def main():
-
+    
     if not helper.verify_user():
         st.switch_page("Login.py")
         return
@@ -731,6 +752,7 @@ def main():
         )
         if st.button("**Refresh**"):
             st.cache_data.clear()
+            st.rerun()
 
 
 if __name__ == "__main__":

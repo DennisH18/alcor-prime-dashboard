@@ -124,73 +124,71 @@ def get_available_companies_and_years(data_store):
     return companies, years[1:] if len(years) > 1 else []
 
 
-desired_order = [
-    ("REVENUE", [
-        "Revenue - Products", 
-        "Revenues - Food and Beverage", 
-        "Service & Rental", 
-        "Other Revenue", 
-        "Sales Discount & Return", 
-    ]),
-    ("COGS", [
-        "COGS - Products", 
-        "COGS - Food & Beverages", 
-        "COGS - Services & Rental", 
-        "Royalty", 
-        "Others", 
-    ]),
-    ("HUMAN RESOURCES", [
-        "Salary and Benefit",
-        "Medical",
-        "Retirement Fee",
-        "Retirement Benefit",
-        "Place Accommodation",
-        "THR & Bonus",
-        "Incentive",
-        "Casual Expense",
-        "Freelance Expense",
-        "Outsourcing Expense",
-    ]),
-    ("OPERATIONAL EXPENSES", [
-        "Event & Promotion",
-        "Other Marketing and Sales Expenses",
-        "Utilities, Admin, Rent & Others",
-        "Telephone & Internet Expense",
-        "Supplies",
-        "Rental Expense",
-        "Others",
-        "General Affair Expenses",
-        "Travelling Expense",
-        "Complementary Expense",
-        "Training & Seminars Expense",
-        "Transportation Expense"
-        "PPE Tax & Insurance Expense",
-        "Other General Affair Expenses",
-    ]),
-    ("DEPRECIATION & MAINTENANCE", [
-        "Depr - Buildings",
-        "Depr - Vehicle",
-        "Depr - Furniture & Fixture",
-        "Depr - Equipment",
-        "Depr - Intangible Assets",
-        "Depr - Leasehold Improvement",
-        "Repair Maintenance"
-    ]),
-    ("OTHER INCOME / EXPENSES", [
-        "Other Income",
-        "Other Expenses",
-        "Provision For Income Tax"
-    ]),
-]
-
 
 def transform_to_category_codes(pnl_account_categories_dict):
+
+    desired_order = [
+        ("REVENUE", [
+            "Revenue - Products", 
+            "Revenues - Food and Beverage", 
+            "Service & Rental", 
+            "Other Revenue", 
+            "Sales Discount & Return", 
+        ]),
+        ("COGS", [
+            "COGS - Products", 
+            "COGS - Food & Beverages", 
+            "COGS - Services & Rental", 
+            "Royalty", 
+            "Others", 
+        ]),
+        ("HUMAN RESOURCES", [
+            "Salary and Benefit",
+            "Medical",
+            "Other",
+            "Casual Expense",
+            "Freelance Expense",
+            "Outsourcing Expense",
+        ]),
+        ("OPERATIONAL EXPENSES", [
+            "Event & Promotion",
+            "Other Marketing and Sales Expenses",
+            "Utility Expense",
+            "Telephone & Internet Expense",
+            "Supplies Expense",
+            "Rental Expense",
+            "Travelling Expense",
+            "Complimentary Expense",
+            "Training & Seminars Expense",
+            "Transportation Expense"
+            "General Affair Expenses",
+            "PPE Tax & Insurance Expense",
+            "Other General Affair Expense",
+        ]),
+        ("DEPRECIATION & MAINTENANCE", [
+            "Depr - Buildings",
+            "Depr - Vehicle",
+            "Depr - Furniture & Fixture",
+            "Depr - Equipment",
+            "Depr - Intangible Assets",
+            "Depr - Leasehold Improvement",
+            "Repair Maintenance"
+        ]),
+        ("OTHER INCOME / EXPENSES", [
+            "Other Income",
+            "Other Expenses",
+            "Provision For Income Tax"
+        ]),
+    ]
+
     transformed_dict = OrderedDict()
     raw_transformed = {}
 
     for main_category, subcategories in pnl_account_categories_dict.items():
         if isinstance(subcategories, dict):
             raw_transformed[main_category] = subcategories
+
+    used_codes = set()
 
     for main_category, subcategory_order in desired_order:
         if main_category not in raw_transformed:
@@ -206,6 +204,17 @@ def transform_to_category_codes(pnl_account_categories_dict):
                     transformed_dict[main_category] = []
 
                 transformed_dict[main_category].extend(codes)
+                used_codes.update(codes)
+
+    for main_category, subcategories in raw_transformed.items():
+        if main_category not in transformed_dict:
+            transformed_dict[main_category] = []
+
+        for subcat, codes in subcategories.items():
+            for code in codes:
+                if code not in used_codes:
+                    transformed_dict[main_category].append(code)
+                    used_codes.add(code)
 
     transformed_items = list(transformed_dict.items())
     if "GROSS PROFIT" not in transformed_dict:

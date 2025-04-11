@@ -1038,6 +1038,8 @@ def main():
         st.markdown("<div style='width: 1px; height: 28px'></div>", unsafe_allow_html=True)
         if st.button("**Refresh**"):
             st.cache_data.clear()
+            st.rerun()
+
 
     data = prepare_data(data_store, companies, selected_year)
     available_months = helper.get_available_months(data, companies, selected_year)
